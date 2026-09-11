@@ -1,0 +1,15 @@
+# Konfigurasi Netlify untuk KartuSign
+# Folder publish = folder ini (deploy/)
+
+[build]
+  publish = "."
+
+# HTML selalu diambil versi terbaru (aplikasi satu file, tidak ada asset berat)
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "no-referrer"
+    X-Frame-Options = "DENY"
+    Permissions-Policy = "camera=(), geolocation=(), microphone=()"
+    Cache-Control = "no-cache"
