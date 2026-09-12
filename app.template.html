@@ -308,7 +308,7 @@ canvas.qrthumb{image-rendering:pixelated;border:1px solid var(--line);border-rad
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
             Ajukan Approval ke Manager
           </button>
-          <p class="hint">Pengajuan masuk ke antrean manager. Setelah disahkan, QR tanda tangan dibuat oleh manager (level 2) — user tidak dapat menandatangani, tetapi <b>user yang mengunduh kartu hasilnya</b> (tombol <i>Unduh Kartu</i> muncul di tabel pengajuan saya setelah status <i>disetujui</i>).</p>
+          <p class="hint">Pengajuan masuk ke antrean manager. Setelah di-approve, <b>draft barcode (QR) jadi otomatis</b> — lalu <b>Anda sendiri yang menempatkan QR-nya pada kartu</b> (posisi/ukuran/rotasi/teks, bisa digeser di pratinjau) dan mengunduh hasilnya. Tombol <i>Unduh Kartu</i> muncul di tabel pengajuan saya setelah status <i>disetujui</i>.</p>
         </div>
       </div>
     </div>
@@ -334,19 +334,76 @@ canvas.qrthumb{image-rendering:pixelated;border:1px solid var(--line);border-rad
       </div>
 
       <div class="card hide" id="approvedBox">
-        <h2><span class="n">3</span> Kartu disetujui — unduh hasilnya</h2>
+        <h2><span class="n">3</span> Kartu disetujui — tempatkan QR &amp; unduh</h2>
         <div class="body">
           <p class="hint" id="approvedInfo" style="margin-top:0"></p>
           <div class="preview" id="approvedBoxBody">
             <canvas id="approvedCanvas"></canvas>
           </div>
-          <div class="btnrow" style="margin-top:12px">
+          <p class="hint">Geser (drag) badge QR langsung pada pratinjau untuk memindahkan posisinya.</p>
+          <div class="sep"></div>
+          <div class="row c2">
+            <div class="field">
+              <label class="f" for="qrPos">Posisi QR</label>
+              <select id="qrPos">
+                <option value="br" selected>Kanan bawah</option>
+                <option value="bl">Kiri bawah</option>
+                <option value="tr">Kanan atas</option>
+                <option value="tl">Kiri atas</option>
+                <option value="custom">Bebas (geser di pratinjau)</option>
+              </select>
+            </div>
+            <div class="field">
+              <label class="f" for="orient">Orientasi kartu</label>
+              <select id="orient">
+                <option value="potret" selected>Potret / berdiri</option>
+                <option value="lanskap">Lanskap / mendatar</option>
+              </select>
+            </div>
+          </div>
+          <div class="row c2">
+            <div class="field">
+              <label class="f" for="qrSize">Ukuran badge: <span id="qrSizeVal">18</span>%</label>
+              <input type="range" id="qrSize" min="6" max="45" step="1" value="18">
+            </div>
+            <div class="field">
+              <label class="f" for="qrCapSize">Ukuran teks: <span id="qrCapSizeVal">16</span>%</label>
+              <input type="range" id="qrCapSize" min="8" max="30" step="1" value="16">
+            </div>
+          </div>
+          <div class="field">
+            <label class="f" for="qrCaption">Teks di bawah QR</label>
+            <input type="text" id="qrCaption" value="TANDA TANGAN DIGITAL — SAH" autocomplete="off">
+          </div>
+          <div class="row c2">
+            <div class="field">
+              <label class="f" for="qrEcl">Koreksi galat QR</label>
+              <select id="qrEcl">
+                <option value="L">L — QR paling kecil</option>
+                <option value="M" selected>M — seimbang</option>
+                <option value="Q">Q — tinggi</option>
+                <option value="H">H — tertinggi</option>
+              </select>
+            </div>
+            <div class="field">
+              <label class="f" for="qrMargin">Margin aman: <span id="qrMarginVal">4</span>%</label>
+              <input type="range" id="qrMargin" min="0" max="12" step="1" value="4">
+            </div>
+          </div>
+          <p style="font-size:13px;margin:0 0 10px">
+            <label><input type="checkbox" id="qrRotate" checked style="width:auto"> Putar badge 90°</label>
+            &nbsp;·&nbsp;
+            <label><input type="checkbox" id="wmOn" style="width:auto"> Watermark "TERVERIFIKASI"</label>
+            &nbsp;·&nbsp;
+            <label><input type="checkbox" id="qrOverlay" checked style="width:auto"> Tempel QR ke kartu</label>
+          </p>
+          <div class="btnrow" style="margin-top:6px">
             <button class="btn primary" id="btnUserDlPng">Unduh PNG</button>
             <button class="btn" id="btnUserDlJpg">Unduh JPG</button>
             <button class="btn" id="btnUserDlQr">Unduh QR saja</button>
             <button class="btn" id="btnUserPrint">Cetak</button>
           </div>
-          <p class="hint">Kartu dirender ulang di perangkat Anda <b>persis dengan tata letak &amp; tanda tangan basah yang dipakai manager</b> (tersimpan bersama approval di server). QR-nya berisi tanda tangan digital yang dapat diverifikasi siapa pun.</p>
+          <p class="hint">Kartu dirender di perangkat Anda — draft QR dari manager ditempatkan sesuai pengaturan di atas. Tanda tangan PNG manager <b>tidak dicetak pada kartu</b>, tetapi muncul di hasil pemeriksaan keaslian.</p>
         </div>
       </div>
     </div>
@@ -368,185 +425,78 @@ canvas.qrthumb{image-rendering:pixelated;border:1px solid var(--line);border-rad
               <tbody id="queueBody"><tr><td colspan="6" class="empty">Antrean kosong.</td></tr></tbody>
             </table>
           </div>
-          <p class="hint"><b>Proses</b> = muat ke editor tanda tangan di kanan · <b>Tolak</b> = kembalikan ke user dengan catatan. Kartu ad-hoc juga bisa dimuat langsung lewat kotak di bawah.</p>
-          <div class="sep"></div>
-          <div class="drop" id="dropCardM" style="padding:14px">
-            <b style="font-size:13px">Opsional: muat kartu ad-hoc (tanpa pengajuan)</b>
-            <span>Untuk kasus khusus yang tidak lewat antrean user.</span>
-          </div>
-          <input type="file" id="fileCardM" accept="image/*" class="hide">
-          <p class="hint" id="cardFileInfoM">Belum ada kartu ad-hoc.</p>
+          <p class="hint"><b>Proses</b> = buka permintaan untuk disetujui · <b>Tolak</b> = kembalikan ke user dengan catatan. Manager <b>hanya menyetujui</b> — penempatan QR pada kartu &amp; unduh kartu adalah tugas user.</p>
         </div>
       </div>
 
       <div class="card">
-        <h2><span class="n">2</span> Tampilan tanda tangan (QR) &amp; tanda tangan basah</h2>
+        <h2><span class="n">2</span> Tanda tangan manager (PNG)</h2>
         <div class="body">
-          <dl class="kv" id="reqSummary" style="margin-bottom:12px"><dt>Permintaan aktif</dt><dd>Belum ada — pilih dari antrean atau muat kartu ad-hoc.</dd></dl>
-          <div class="row c3">
-            <div class="field">
-              <label class="f" for="qrPos">Posisi</label>
-              <select id="qrPos">
-                <option value="br" selected>Kanan bawah</option>
-                <option value="bl">Kiri bawah</option>
-                <option value="tr">Kanan atas</option>
-                <option value="tl">Kiri atas</option>
-                <option value="custom">Bebas (geser di preview)</option>
-              </select>
-            </div>
-            <div class="field">
-              <label class="f" for="qrSize">Ukuran: <span id="qrSizeVal">18</span>%</label>
-              <input type="range" id="qrSize" min="6" max="45" step="1" value="18">
-            </div>
-            <div class="field">
-              <label class="f" for="qrAlgo">Algoritma tanda tangan</label>
-              <select id="qrAlgo">
-                <option value="ES256" selected>ECDSA P-256 (QR ringkas)</option>
-                <option value="RS256">RSA-2048 (QR padat)</option>
-              </select>
-            </div>
+          <div class="drop" id="dropSig" style="padding:12px">
+            <b style="font-size:13px">Unggah tanda tangan manager (PNG/JPG)</b>
+            <span>Klik atau tarik file ke sini — dilampirkan saat approve.</span>
           </div>
-          <div class="row c3">
-            <div class="field">
-              <label class="f" for="orient">Orientasi kartu</label>
-              <select id="orient">
-                <option value="potret" selected>Potret / berdiri (default)</option>
-                <option value="lanskap">Lanskap / mendatar</option>
-              </select>
-            </div>
-            <div class="field">
-              <label class="f" for="qrEcl">Koreksi galat QR</label>
-              <select id="qrEcl">
-                <option value="L">L — QR paling jarang (mudah dipindai)</option>
-                <option value="M" selected>M — seimbang (disarankan)</option>
-                <option value="Q">Q — tahan 25% kerusakan</option>
-                <option value="H">H — tahan 30% kerusakan (QR paling padat)</option>
-              </select>
-            </div>
-            <div class="field">
-              <label class="f">&nbsp;</label>
-              <label class="chip gray" style="cursor:pointer;user-select:none;margin-top:9px">
-                <input type="checkbox" id="qrShortKid" style="width:auto"> Key ID ringkas (6 karakter)
-              </label>
-              <label class="chip gray" style="cursor:pointer;user-select:none;margin-top:6px">
-                <input type="checkbox" id="qrRotate" style="width:auto"> Putar tanda tangan 90°
-              </label>
-            </div>
-          </div>
-          <div class="row c3">
-            <div class="field">
-              <label class="f" for="qrCaption">Teks di bawah QR</label>
-              <input type="text" id="qrCaption" value="TANDA TANGAN DIGITAL — SAH" autocomplete="off">
-            </div>
-            <div class="field">
-              <label class="f" for="qrCapSize">Ukuran teks: <span id="qrCapSizeVal">16</span>%</label>
-              <input type="range" id="qrCapSize" min="8" max="30" step="1" value="16">
-            </div>
-            <div class="field">
-              <label class="f" for="qrMargin">Margin aman: <span id="qrMarginVal">4</span>%</label>
-              <input type="range" id="qrMargin" min="0" max="12" step="1" value="4">
-            </div>
-          </div>
-          <div class="btnrow" style="margin-top:4px">
-            <label class="chip gray" style="cursor:pointer;user-select:none">
-              <input type="checkbox" id="wmOn" style="width:auto"> Watermark "TERVERIFIKASI"
-            </label>
-            <label class="chip gray" style="cursor:pointer;user-select:none">
-              <input type="checkbox" id="qrOverlay" checked style="width:auto"> Tempel QR ke kartu
-            </label>
-          </div>
-          <div class="sep"></div>
-          <label class="f">Gambar tanda tangan manager (PNG, opsional)</label>
-          <div class="row c3">
-            <div class="field">
-              <div class="drop" id="dropSig" style="padding:12px">
-                <b style="font-size:13px">Upload PNG tanda tangan</b>
-                <span>Tanda tangan basah hasil scan; latar transparan disarankan.</span>
-              </div>
-              <input type="file" id="fileSig" accept="image/*" class="hide">
-              <p class="hint" id="sigFileInfo">Belum ada tanda tangan.</p>
-            </div>
-            <div class="field">
-              <label class="f" for="sigSize">Ukuran tanda tangan: <span id="sigSizeVal">30</span>%</label>
-              <input type="range" id="sigSize" min="10" max="60" step="1" value="30">
-            </div>
-            <div class="field">
-              <label class="f">&nbsp;</label>
-              <label class="chip gray" style="cursor:pointer;user-select:none;margin-top:9px">
-                <input type="checkbox" id="sigEmbed" style="width:auto"> Sematkan tanda tangan ringkas di QR
-              </label>
-            </div>
-          </div>
+          <input type="file" id="fileSig" accept="image/*" class="hide">
+          <p class="hint" id="sigFileInfo">Belum ada tanda tangan.</p>
+          <p class="hint">Tanda tangan <b>tidak dicetak pada kartu</b>. Hash-nya diikat ke payload QR (<span class="mono">sh</span>) dan versi ringkasnya disematkan di dalam QR (<span class="mono">ss</span>) sehingga <b>muncul di kolom hasil saat verifikasi keaslian</b>. Unggah sekali — dipakai untuk semua approval.</p>
         </div>
       </div>
     </div>
-
     <div>
       <div class="card" style="margin-bottom:18px">
-        <h2><span class="n">3</span> Pratinjau kartu
+        <h2><span class="n">3</span> Permintaan aktif
           <span class="grow"></span>
-          <span class="chip" id="chipSig">belum ditandatangani</span>
+          <span class="chip" id="chipSig">belum di-approve</span>
         </h2>
         <div class="body">
+          <dl class="kv" id="reqSummary" style="margin-bottom:12px"><dt>Permintaan aktif</dt><dd>Belum ada — pilih <b>Proses</b> dari antrean.</dd></dl>
           <div class="preview" id="previewBox">
-            <div class="empty" id="previewEmpty">Muat kartu dari antrean (atau ad-hoc) untuk melihat pratinjau.</div>
+            <div class="empty" id="previewEmpty">Pratinjau kartu asli tampil di sini (tanpa QR).</div>
             <canvas id="cardPreview" class="hide"></canvas>
           </div>
-          <div class="sep"></div>
-          <dl class="kv" id="sigInfo">
-            <dt>Status</dt><dd>Menunggu kartu &amp; kunci privat.</dd>
-          </dl>
+          <p class="hint" id="cardFileInfoM">Belum ada kartu dimuat.</p>
+          <div class="row c2" style="margin-top:10px">
+            <div class="field">
+              <label class="f" for="qrAlgo">Algoritma tanda tangan</label>
+              <select id="qrAlgo">
+                <option value="ES256" selected>ECDSA P-256 / SHA-256 (disarankan — QR kompak)</option>
+                <option value="RS256">RSA-2048 / SHA-256</option>
+              </select>
+            </div>
+            <div class="field" style="align-self:end;padding-bottom:6px">
+              <label style="font-size:13px"><input type="checkbox" id="qrShortKid" style="width:auto"> Key ID ringkas (6 karakter)</label>
+            </div>
+          </div>
+          <p class="hint" id="densityHint"></p>
+          <div class="btnrow">
+            <button class="btn primary" id="btnSign" disabled>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 12 2 2 4-4"/><path d="M21 12c0 4.97-4.03 9-9 9s-9-4.03-9-9 4.03-9 9-9c2.4 0 4.58.94 6.18 2.47"/></svg>
+              Approve &amp; Buat Barcode
+            </button>
+            <button class="btn danger" id="btnRejectReq" disabled>Tolak</button>
+          </div>
         </div>
       </div>
 
       <div class="card">
-        <h2><span class="n">4</span> Sahkan &amp; unduh</h2>
+        <h2><span class="n">4</span> Draft barcode (QR)</h2>
         <div class="body">
-          <div class="btnrow">
-            <button class="btn primary" id="btnSign" disabled>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 12 2 2 4-4"/><path d="M21 12c0 4.97-4.03 9-9 9s-9-4.03-9-9 4.03-9 9-9c2.4 0 4.58.94 6.18 2.47"/></svg>
-              Tanda Tangani &amp; Setujui
-            </button>
-            <button class="btn" id="btnReset">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>
-              Ulangi
-            </button>
+          <div class="preview" id="qrDraftBox">
+            <div class="empty" id="qrDraftEmpty">Draft QR tampil di sini setelah approve.</div>
+            <canvas id="qrDraft" class="hide"></canvas>
           </div>
-          <div class="sep"></div>
-          <label class="f" for="dlFormat">Format unduhan</label>
-          <div class="row c2" style="margin-bottom:12px">
-            <select id="dlFormat">
-              <option value="png" selected>PNG (kualitas terbaik)</option>
-              <option value="jpg">JPG (ukuran lebih kecil)</option>
-              <option value="qr">Hanya QR code (PNG)</option>
-            </select>
-            <select id="dlScale">
-              <option value="1" selected>Skala 1× (ukuran asli)</option>
-              <option value="2">Skala 2× (lebih tajam)</option>
-              <option value="0.5">Skala 0,5× (lebih ringan)</option>
-            </select>
-          </div>
-          <div class="btnrow">
-            <button class="btn ok" id="btnDownload" disabled>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></svg>
-              Unduh Kartu
-            </button>
-            <button class="btn" id="btnPrint" disabled>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><path d="M6 14h12v8H6z"/></svg>
-              Cetak
-            </button>
+          <div class="btnrow" style="margin-top:10px">
             <button class="btn" id="btnCopyPayload" disabled>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
               Salin isi QR
             </button>
             <button class="btn ghost" id="btnSendVerify" disabled>Kirim ke tab Verifikasi →</button>
           </div>
-          <div class="sep"></div>
-          <details>
+          <details style="margin-top:10px">
             <summary>Lihat isi QR code (payload mentah)</summary>
             <div class="inner">
-              <textarea id="payloadBox" readonly placeholder="Payload akan muncul setelah kartu ditandatangani."></textarea>
-              <p class="hint">Payload berisi metadata + hash SHA-256 gambar kartu (+ hash/versi ringkas tanda tangan basah) + tanda tangan digital.</p>
+              <textarea id="payloadBox" readonly placeholder="Payload muncul setelah approve."></textarea>
+              <p class="hint">Payload = metadata + hash SHA-256 gambar kartu + hash &amp; versi ringkas tanda tangan manager (<span class="mono">sh</span>/<span class="mono">ss</span>) + tanda tangan digital. Draft QR ini <b>ditempatkan ke kartu oleh user</b> di tab <i>Pengajuan Kartu</i>.</p>
             </div>
           </details>
         </div>
@@ -769,13 +719,11 @@ canvas.qrthumb{image-rendering:pixelated;border:1px solid var(--line);border-rad
       <div class="body">
         <ol style="margin:0;padding-left:20px;font-size:14px;line-height:1.75">
           <li><b>Hubungkan Supabase</b> sekali saja (URL + anon key, lihat panel pengaturan server), lalu <b>buat akun / masuk</b>. Akun pertama otomatis menjadi <b>manager (level 2)</b>; manager menambah akun <b>user (level 1)</b> di tab <i>Kunci &amp; Akun</i>. Login &amp; data tersinkron antar perangkat.</li>
-          <li><b>(user, dari perangkat mana pun)</b> Upload gambar kartu, isi nama/ID/masa berlaku, lalu <b>Ajukan Approval</b> — pengajuan tersimpan di server dan langsung masuk antrean manager. Setelah disetujui, <b>unduh kartu hasilnya</b> dari tabel <i>pengajuan saya</i> (PNG/JPG/QR/cetak).</li>
+          <li><b>(user, dari perangkat mana pun)</b> Upload gambar kartu, isi nama/ID/masa berlaku, lalu <b>Ajukan Approval</b> — pengajuan tersimpan di server dan langsung masuk antrean manager.</li>
           <li><b>(manager)</b> Buat kunci sekali saja di tab <i>Kunci &amp; Akun</i> — kunci privat disimpan <b>terenkripsi frasa sandi</b> di server, sehingga manager dapat menandatangani dari perangkat mana pun.</li>
-          <li><b>(manager)</b> Di tab <i>Approval &amp; Tanda Tangan</i>, pilih permintaan dari antrean (atau muat kartu ad-hoc).</li>
-          <li>Aplikasi menghitung <b>SHA-256(metadata + byte gambar)</b>, lalu menandatanganinya dengan kunci privat.</li>
-          <li>Hasil tanda tangan dikemas jadi <b>QR code</b> dan ditempelkan ke kartu sesuai posisi/ukuran pilihan Anda.</li>
-          <li>Status permintaan berubah menjadi <i>disetujui</i> — <b>user mengunduh kartunya sendiri</b> di tab <i>Pengajuan Kartu</i> (tombol <b>Unduh Kartu</b>): kartu dirender ulang di perangkat user <b>persis</b> dengan tata letak &amp; tanda tangan basah manager. Untuk kartu ad-hoc, manager tetap dapat mengunduh/mencetak langsung.</li>
-          <li>Petugas memeriksa keaslian di tab <i>Verifikasi</i>: <b>cukup tempel isi QR</b> → hasil <b>KARTU INI ASLI</b> atau <b>TIDAK ASLI</b>. Tanpa kunci publik, tanpa upload gambar.</li>
+          <li><b>(manager)</b> Unggah <b>tanda tangan PNG</b> sekali di tab <i>Approval</i> (dilampirkan ke setiap approve; tidak dicetak di kartu), lalu pilih permintaan → <b>Proses</b> → <b>Approve &amp; Buat Barcode</b>. Aplikasi menghitung <b>SHA-256(metadata + byte gambar)</b>, menandatanganinya dengan kunci privat, dan menampilkan <b>draft QR</b>. Menu manager hanya itu: approve/tolak + preview draft barcode.</li>
+          <li><b>(user)</b> Setelah status <i>disetujui</i>, klik <b>Unduh Kartu</b> di tabel <i>pengajuan saya</i>: user <b>menempatkan draft QR pada kartu</b> (posisi, ukuran, rotasi, caption — bisa digeser langsung di pratinjau), lalu mengunduh PNG/JPG/QR atau mencetak.</li>
+          <li>Petugas memeriksa keaslian di tab <i>Verifikasi</i>: <b>cukup tempel isi QR</b> → hasil <b>KARTU INI ASLI</b> atau <b>TIDAK ASLI</b> — dan <b>tanda tangan PNG manager tampil di kolom hasil pemeriksaan</b> (dari server bila login, atau dari versi ringkas yang tertanam di QR bila offline).</li>
           <li>Agar verifikasi bekerja di perangkat petugas, unduh <b>KartuSign-Verifier.html</b> dari tab <i>Kunci &amp; Keamanan</i> (kunci publik Anda tertanam di dalamnya) dan bagikan file itu.</li>
         </ol>
         <div class="sep"></div>
@@ -792,8 +740,8 @@ canvas.qrthumb{image-rendering:pixelated;border:1px solid var(--line);border-rad
         <details style="margin-bottom:9px"><summary>Apakah QR bisa dipindai aplikasi apa pun?</summary>
           <div class="inner"><p style="font-size:13.5px;margin:0">Bisa — isinya teks JSON biasa, jadi pemindai QR apa pun akan menampilkannya. Putusan ASLI/TIDAK ASLI tetap dihitung secara kriptografis di aplikasi ini, bukan dari tampilan teks.</p></div>
         </details>
-        <details style="margin-bottom:9px"><summary>Bisakah file PNG tanda tangan basah disematkan ke QR?</summary>
-          <div class="inner"><p style="font-size:13.5px;margin:0">File PNG apa adanya <b>tidak muat</b> (kapasitas maksimum QR ≈ 2.953 byte; PNG tanda tangan biasanya 5–100 KB). Aplikasi menyediakan dua jalur: (1) tanda tangan dicetak sebagai lapisan visual di kartu dan <b>hash SHA-256 file-nya diikat ke payload</b> (field <span class="mono">sh</span>) — file tanda tangan diubah → verifikasi gagal; (2) opsi <b>"Sematkan tanda tangan ringkas di dalam QR"</b>: gambar dikonversi ke monokrom 96×40 terkompresi (field <span class="mono">ss</span>) sehingga verifikator dapat <b>menampilkan ulang tanda tangan langsung dari isi QR</b> dan membandingkannya dengan yang tercetak di kartu.</p></div>
+        <details style="margin-bottom:9px"><summary>Bagaimana tanda tangan PNG manager dipakai?</summary>
+          <div class="inner"><p style="font-size:13.5px;margin:0">Tanda tangan manager diunggah sekali (PNG/JPG) dan <b>dilampirkan setiap approve</b> — <b>tidak dicetak pada kartu</b>. Dua jalur pengikatan: (1) <b>hash SHA-256 file-nya diikat ke payload</b> (field <span class="mono">sh</span>) — file tanda tangan diganti → verifikasi gagal; (2) versi <b>monokrom 96×40 terkompresi disematkan di dalam QR</b> (field <span class="mono">ss</span>) sehingga saat <b>verifikasi keaslian, gambar tanda tangan tampil di kolom hasil</b> — bahkan offline lewat file verifier. Saat verifier login &amp; pengajuan ditemukan di server, <b>PNG asli</b> (dari lampiran approval) yang ditampilkan.</p></div>
         </details>
         <details style="margin-bottom:9px"><summary>Kenapa verifikasi tidak butuh gambar kartu lagi?</summary>
           <div class="inner"><p style="font-size:13.5px;margin:0">Sejak skema v2, hash SHA-256 gambar (<span class="mono">h</span>) ikut <b>di dalam</b> string yang ditandatangani. Jadi tanda tangan sudah mengikat gambar: memverifikasi tanda tangan dari payload saja cukup untuk menjamin seluruh data (termasuk identitas gambar) asli &amp; tidak diubah. Pencocokan hash dengan file gambar tetap tersedia sebagai opsional lanjutan.</p></div>
@@ -1332,6 +1280,8 @@ async function loadRequest(r){
   const rec = await bytesToImageRec(r.cardBytes, r.cardName || "kartu.png");
   S.card = rec; S.signMeta = { ...r.meta }; S.currentReqId = r.id;
   S.sig = null; $("payloadBox").value = "";
+  const qd = $("qrDraft"); if (qd) qd.classList.add("hide");
+  const qe = $("qrDraftEmpty"); if (qe) qe.classList.remove("hide");
   $("reqSummary").innerHTML = `
     <dt>Permintaan aktif</dt><dd>#${esc(r.id.slice(0,8))} dari ${esc(r.by)} · ${esc(fmtDate(r.ts))}</dd>
     <dt>ID kartu</dt><dd>${esc(r.meta.cid || "—")}</dd>
@@ -1340,7 +1290,7 @@ async function loadRequest(r){
     <dt>Berlaku s/d</dt><dd>${esc(r.meta.exp || "—")}</dd>`;
   $("cardFileInfoM").innerHTML = `<b>${esc(rec.name)}</b> · ${rec.w}×${rec.h} px · permintaan #${esc(r.id.slice(0,8))}`;
   render(); renderSigInfo();
-  toast("Permintaan dimuat — siap ditandatangani");
+  toast("Permintaan dimuat — siap di-approve");
 }
 async function renderQueue(){
   const tb = $("queueBody"); if (!tb) return;
@@ -1400,24 +1350,6 @@ async function renderMyRequests(){
 }
 
 /* ---------------- kartu hasil approval: dirender & diunduh oleh USER ---------------- */
-function currentLayout(){
-  return {
-    pos: $("qrPos").value, size: $("qrSize").value, margin: $("qrMargin").value,
-    cap: $("qrCapSize").value, capText: $("qrCaption").value, rotate: $("qrRotate").checked,
-    wm: $("wmOn").checked, overlay: $("qrOverlay").checked, ecl: $("qrEcl").value,
-    orient: $("orient").value, sigSize: $("sigSize").value,
-    custom: { x: S.qr.x, y: S.qr.y }
-  };
-}
-function applyLayout(L){
-  if (!L) return;
-  const setV = (id, v)=>{ const el = $(id); if (!el || v == null) return; if (el.type === "checkbox") el.checked = !!v; else el.value = v; };
-  setV("qrPos", L.pos); setV("qrSize", L.size); setV("qrMargin", L.margin);
-  setV("qrCapSize", L.cap); setV("qrCaption", L.capText); setV("qrRotate", L.rotate);
-  setV("wmOn", L.wm); setV("qrOverlay", L.overlay); setV("qrEcl", L.ecl);
-  setV("orient", L.orient); setV("sigSize", L.sigSize);
-  if (L.custom && typeof L.custom.x === "number"){ S.qr.x = L.custom.x; S.qr.y = L.custom.y; }
-}
 function imageFromURL(url, name){
   return new Promise((res, rej)=>{
     const img = new Image();
@@ -1433,26 +1365,17 @@ async function prepareApprovedCard(id){
   if (!r.cardBytes) throw new Error("Gambar kartu tidak tersedia di server.");
   const obj = JSON.parse(r.payload);
   const rec = await bytesToImageRec(r.cardBytes, r.cardName || "kartu.png");
-  const meta = { ...r.meta }; const L = meta._layout; const sigStored = meta._sig;
+  const meta = { ...r.meta };
   delete meta._layout; delete meta._sig;
   S.card = rec; S.signMeta = meta; S.currentReqId = null; S.userApprovedId = id;
-  applyLayout(L);
   S.sig = { payload: r.payload, obj, sigB64: obj.s || "", hashB64: obj.h || "", ts: obj.ts,
             alg: obj.alg, kid: obj.kid || r.kid, digestB64: "", publicPem: "" };
-  S.sigImg = null;
-  try{
-    if (obj.ss) S.sigImg = await imageFromURL(await expandCompactSig(obj.ss), "ttd.png");
-    else if (sigStored) S.sigImg = await bytesToImageRec(b64ToBytes(sigStored), "ttd.png");
-  }catch(e){ /* kartu tetap diunduh tanpa lapisan tanda tangan basah */ }
+  S.sigImg = null;   // tanda tangan manager TIDAK dicetak pada kartu
   const box = $("approvedBox"); box.classList.remove("hide");
   $("approvedInfo").innerHTML = `<b>${esc(meta.cid || "kartu")}</b> · ${esc(meta.hld || "")} · disetujui oleh <b>${esc(r.decidedBy || "manager")}</b> · ${esc(fmtDate(r.decidedTs || r.ts))}`;
-  const cv = $("approvedCanvas");
-  drawCard(cv, { scale: 1 });
-  const wrap = $("approvedBoxBody");
-  cv.style.width = Math.min((wrap ? wrap.clientWidth : 640) - 24, S.card.w) + "px";
-  cv.style.height = "auto";
+  renderApproved();
   if (box.scrollIntoView) { try{ box.scrollIntoView({ behavior:"smooth", block:"start" }); }catch(e){} }
-  toast("Kartu disetujui dimuat — siap diunduh");
+  toast("Kartu disetujui dimuat — tempatkan QR lalu unduh");
 }
 function userDownload(fmt){
   if (!S.sig || !S.userApprovedId){ toast("Muat kartu yang sudah disetujui terlebih dahulu.", true); return; }
@@ -1691,7 +1614,7 @@ async function signCard(metaOverride){
   let sh = "", ss = "";
   if (S.sigImg && S.sigImg.bytes){
     sh = b64u(await crypto.subtle.digest("SHA-256", S.sigImg.bytes));
-    if ($("sigEmbed").checked) ss = await buildCompactSig(S.sigImg.img, 96, 40);
+    ss = await buildCompactSig(S.sigImg.img, 96, 40);
   }
   const base = { v:3, alg, kid:kidOut, ts, cid:meta.cid, hld:meta.hld, apr:meta.apr, exp:meta.exp, rsn:meta.rsn, h:imgHashB64, sh, ss };
   const cs = canonicalString(base);
@@ -1887,7 +1810,7 @@ function drawCard(target, opts){
     g.restore();
   }
 
-  const needBadge = !!S.sig && ($("qrOverlay").checked || !!S.sigImg);
+  const needBadge = !!S.sig && $("qrOverlay").checked;
   if (needBadge){
     const b = computeBadge();
     const qr = makeQrCanvas(S.sig.payload, Math.round(b.qrSize*scale), $("qrEcl").value || "M");
@@ -1919,36 +1842,9 @@ function drawCard(target, opts){
         g.fillText(b.capLines[i], (b.w*scale)/2, (topY + b.lineH*(i+0.5))*scale, (b.w - b.pad*1.2)*scale);
       }
     }
-    if (!(S.sig && $("qrOverlay").checked)){
-      // hanya tanda tangan (QR overlay mati): tetap butuh rect → gambar sig saja di bawah
-    }
-    g.restore();
-  }
-  if (S.sigImg && S.sigImg.img){
-    const b = computeBadge();
-    const r = computeSigRect(b);
-    g.save();
-    g.fillStyle = "#fff";
-    g.globalAlpha = 0.92;
-    g.fillRect(r.x*scale, r.y*scale, r.w*scale, r.h*scale);
-    g.globalAlpha = 1;
-    g.drawImage(S.sigImg.img, r.x*scale, r.y*scale, r.w*scale, r.h*scale);
     g.restore();
   }
   return c;
-}
-function computeSigRect(b){
-  const W = S.card.w, H = S.card.h;
-  const pct = Number($("sigSize").value)/100;
-  const aspect = (S.sigImg.h || 1) / (S.sigImg.w || 1);
-  let sh = Math.round(b.w * pct);
-  let sw = Math.max(8, Math.round(sh / aspect));
-  const gap = Math.round(b.w * 0.12);
-  let x = (b.fx + b.fw/2 >= W/2) ? b.fx - sw - gap : b.fx + b.fw + gap;
-  let y = Math.round(b.fy + (b.fh - sh)/2);
-  x = Math.max(4, Math.min(x, W - sw - 4));
-  y = Math.max(4, Math.min(y, H - sh - 4));
-  return { x, y, w: sw, h: sh };
 }
 function applyOrientation(){
   const potret = $("orient").value === "potret";
@@ -1965,7 +1861,7 @@ function render(){
   $("previewEmpty").classList.add("hide");
   const cv = $("cardPreview");
   cv.classList.remove("hide");
-  drawCard(cv, { scale: 1 });
+  drawCard(cv, { scale: 1, plain: true });   // pratinjau manager = kartu asli (tanpa QR)
   const box = $("previewBox");
   cv.style.width = Math.min(box.clientWidth - 24, S.card.w) + "px";
   cv.style.height = "auto";
@@ -1976,6 +1872,17 @@ function render(){
     uv.style.width = Math.min(bu.clientWidth - 24, S.card.w) + "px";
     uv.style.height = "auto";
   }
+  renderApproved();
+}
+function renderApproved(){
+  if (!S.sig || !S.userApprovedId) return;
+  const box = $("approvedBox");
+  if (!box || box.classList.contains("hide")) return;
+  const cv = $("approvedCanvas");
+  drawCard(cv, { scale: 1 });
+  const wrap = $("approvedBoxBody");
+  cv.style.width = Math.min((wrap ? wrap.clientWidth : 640) - 24, S.card.w) + "px";
+  cv.style.height = "auto";
 }
 
 /* ---------------- muat gambar ---------------- */
@@ -2128,7 +2035,7 @@ function estimatePayload(alg, meta){
   const m = meta || { cid:"KTR-2026-000123", hld:"Nama Pemegang Kartu", apr:"Pejabat Berwenang", exp:"2027-12-31", rsn:"" };
   const sigLen = ALG[alg].sigBytes;
   const withSig = !!(S.sigImg && S.sigImg.bytes);
-  const withEmbed = withSig && $("sigEmbed") && $("sigEmbed").checked;
+  const withEmbed = withSig;
   const shortKid = $("qrShortKid") && $("qrShortKid").checked;
   const o = { v:3, alg, kid: shortKid ? "aaaaaa" : "aaaaaaaaaaaa", ts:1767225600, cid:m.cid, hld:m.hld, apr:m.apr, exp:m.exp, rsn:m.rsn,
               h:"A".repeat(43), s:"A".repeat(Math.ceil(sigLen*4/3)) };
@@ -2137,46 +2044,25 @@ function estimatePayload(alg, meta){
   return JSON.stringify(compactPayload(o)).length;
 }
 function renderSigInfo(){
-  const alg = $("qrAlgo").value;
+  const chip = $("chipSig");
+  if (chip){
+    if (S.sig){ chip.className = "chip green"; chip.textContent = "di-approve · draft QR jadi"; }
+    else { chip.className = "chip"; chip.textContent = S.currentReqId ? "menunggu approve" : "belum di-approve"; }
+  }
   const dh = $("densityHint");
   if (dh){
     if (S.sig){
       dh.innerHTML = "<b>Kepadatan QR:</b> " + esc(qrDensityLabel(S.sig.payload)) + " &middot; payload " + S.sig.payload.length + " karakter.";
     } else {
-      const est = estimatePayload(alg, metaOf());
-      dh.innerHTML = "<b>Perkiraan kepadatan QR:</b> " + esc(qrDensityLabel("X".repeat(est))) + " &middot; ±" + est + " karakter. Tips: QR bisa digeser langsung dengan mouse/jari pada preview.";
+      const est = estimatePayload($("qrAlgo").value, S.signMeta || metaOf());
+      dh.innerHTML = "<b>Perkiraan kepadatan QR:</b> " + esc(qrDensityLabel("X".repeat(est))) + " &middot; ±" + est + " karakter.";
     }
   }
-  const rec = S.keys[alg];
-  const dl = $("sigInfo");
-  const keyTxt = rec && rec.privateKey ? `<span class="chip green">kunci siap</span> kid ${esc(rec.kid)}`
-    : rec && rec.locked ? `<span class="chip amber">kunci terkunci</span> kid ${esc(rec.kid)}`
-    : `<span class="chip gray">kunci akan dibuat otomatis saat menandatangani</span>`;
-  const imgTxt = S.card.img ? `${S.card.w}×${S.card.h} px · ${(S.card.bytes.length/1024).toFixed(0)} KB` : "belum dimuat";
-  let rows = `
-    <dt>Kartu</dt><dd>${esc(imgTxt)}${S.card.name?` · ${esc(S.card.name)}`:""}</dd>
-    <dt>Sumber</dt><dd>${S.currentReqId ? `permintaan #${esc(S.currentReqId.slice(0,8))} (antrean)` : S.card.img ? "ad-hoc / dimuat langsung" : "—"}</dd>
-    <dt>Algoritma</dt><dd>${esc(ALG[alg].label)} — ${keyTxt}</dd>`;
-  if (S.sig){
-    rows += `
-    <dt>Waktu</dt><dd>${esc(fmtDate(S.sig.ts))}</dd>
-    <dt>Hash gambar</dt><dd>${esc(S.sig.hashB64.slice(0,32))}…</dd>
-    <dt>Tanda tangan</dt><dd>${esc(S.sig.sigB64.slice(0,32))}… (${b64uToBytes(S.sig.sigB64).length} byte)</dd>
-    <dt>Ukuran payload</dt><dd>${S.sig.payload.length} karakter <span class="pill">${qrDensityLabel(S.sig.payload)}</span></dd>`;
-  } else {
-    rows += `<dt>Status</dt><dd>Tekan “Beri Tanda Tangan Digital” untuk mengesahkan kartu.</dd>`;
-  }
-  dl.innerHTML = rows;
-
-  const chip = $("chipSig");
-  if (S.sig){ chip.className = "chip green"; chip.textContent = "sudah ditandatangani"; }
-  else { chip.className = "chip"; chip.textContent = S.card.img ? "siap ditandatangani" : "belum ditandatangani"; }
-
-  $("btnSign").disabled = !S.card.img;
-  $("btnDownload").disabled = !S.sig;
-  $("btnPrint").disabled = !S.sig;
-  $("btnCopyPayload").disabled = !S.sig;
-  $("btnSendVerify").disabled = !S.sig;
+  const done = !!S.sig;
+  if ($("btnSign")) $("btnSign").disabled = !S.currentReqId || done;
+  if ($("btnRejectReq")) $("btnRejectReq").disabled = !S.currentReqId || done;
+  if ($("btnCopyPayload")) $("btnCopyPayload").disabled = !done;
+  if ($("btnSendVerify")) $("btnSendVerify").disabled = !done;
 }
 
 /* ---------------- verifikasi ---------------- */
@@ -2280,26 +2166,36 @@ async function doVerify(){
   const hashLine = hashMatch === true ? '<p class="hint" style="margin:8px 0 0"><span class="chip green">gambar cocok</span> Hash gambar yang dimuat sama dengan saat penandatanganan.</p>'
                  : hashMatch === false ? '<p class="hint" style="margin:8px 0 0"><span class="chip red">gambar berbeda</span> Hash gambar yang dimuat TIDAK sama dengan saat penandatanganan.</p>'
                  : "";
-  // tanda tangan basah: hash file + versi ringkas yang tertanam di QR
+  // tanda tangan manager: PNG asli dari lampiran approval (server) atau versi ringkas di QR
+  let fullSigUrl = "";
+  if ((obj.sh || obj.ss) && SB.configured() && S.session && S.session.userId){
+    try{
+      const rows = await SB.listRequests("id,card_data,payload");
+      const hit = (rows || []).find(rr => rr.payload === payloadText);
+      if (hit && hit.card_data && hit.card_data._sig) fullSigUrl = "data:image/png;base64," + hit.card_data._sig;
+    }catch(e){}
+  }
   let sigLine = "", sigHashOk = null;
   if (obj.sh || obj.ss){
     if (S.verifySig && S.verifySig.bytes && obj.sh){
       sigHashOk = b64u(await crypto.subtle.digest("SHA-256", S.verifySig.bytes)) === obj.sh;
     }
     let imgTag = "";
-    if (obj.ss){
+    if (fullSigUrl){
+      imgTag = `<img src="${fullSigUrl}" alt="tanda tangan PNG manager" style="background:#fff;border:1px solid var(--line);border-radius:6px;padding:4px;max-width:260px;height:auto;display:block;margin:6px 0">`;
+    } else if (obj.ss){
       try {
         const url = await expandCompactSig(obj.ss);
         imgTag = `<img src="${url}" alt="tanda tangan dari QR" style="background:#fff;border:1px solid var(--line);border-radius:6px;padding:4px;max-width:230px;height:auto;display:block;margin:6px 0">`;
       } catch(e){ imgTag = `<p class="hint">${esc(e.message)}</p>`; }
     }
-    sigLine = `<div class="sep"></div><label class="f">Tanda tangan basah</label>
+    sigLine = `<div class="sep"></div><label class="f">Tanda tangan manager (PNG)</label>
       ${imgTag}
       <p class="hint" style="margin:4px 0 0">${obj.sh ? `Hash file tanda tangan terikat di payload: <span class="mono">${esc(obj.sh.slice(0,20))}…</span> ` : ""}${
         sigHashOk === true ? '<span class="chip green">file tanda tangan cocok</span>' :
         sigHashOk === false ? '<span class="chip red">file tanda tangan TIDAK cocok</span>' :
         '<span class="chip gray">opsional: muat file tanda tangan di Opsi lanjutan untuk cek hash</span>'}</p>
-      ${imgTag ? '<p class="hint" style="margin:4px 0 0">Bandingkan gambar di atas dengan tanda tangan yang tercetak pada kartu fisik.</p>' : ""}`;
+      ${imgTag ? `<p class="hint" style="margin:4px 0 0">${fullSigUrl ? "PNG asli dari lampiran approval (server)." : "Versi ringkas yang tertanam di dalam QR."} Tanda tangan tidak dicetak pada kartu — keasliannya diikat oleh hash di payload.</p>` : ""}`;
   }
 
   let valid = false;
@@ -2425,16 +2321,6 @@ function init(){
 
   // file inputs
   bindDrop($("dropCard"), $("fileCard"), onCardFile);
-  bindDrop($("dropCardM"), $("fileCardM"), async (file)=>{
-    try{
-      const rec = await loadImageFile(file, "card");
-      S.signMeta = null; S.currentReqId = null; S.sig = null; $("payloadBox").value = "";
-      $("reqSummary").innerHTML = `<dt>Permintaan aktif</dt><dd>Kartu ad-hoc (di luar antrean): ${esc(rec.name)}</dd>`;
-      $("cardFileInfoM").innerHTML = `<b>${esc(rec.name)}</b> · ${rec.w}×${rec.h} px · ad-hoc`;
-      render(); renderSigInfo();
-      toast("Kartu ad-hoc dimuat");
-    }catch(e){ toast(e.message, true); }
-  });
   $("btnSubmitReq").addEventListener("click", submitRequest);
   $("btnUserDlPng").addEventListener("click", ()=>userDownload("png"));
   $("btnUserDlJpg").addEventListener("click", ()=>userDownload("jpg"));
@@ -2477,12 +2363,10 @@ function init(){
   bindDrop($("dropSig"), $("fileSig"), async (file)=>{
     try{
       const rec = await loadImageFile(file, "sig");
-      $("sigFileInfo").innerHTML = `<b>${esc(rec.name)}</b> · ${rec.w}×${rec.h} px · ${(rec.bytes.length/1024).toFixed(1)} KB → hash diikat ke payload${$("sigEmbed").checked ? " + versi ringkas disematkan di QR" : ""}`;
-      render();
+      $("sigFileInfo").innerHTML = `<b>${esc(rec.name)}</b> · ${rec.w}×${rec.h} px · ${(rec.bytes.length/1024).toFixed(1)} KB → dilampirkan saat approve (hash diikat ke payload + versi ringkas disematkan di QR)`;
+      renderSigInfo();
     }catch(e){ toast(e.message, true); }
   });
-  $("sigSize").addEventListener("input", ()=>{ $("sigSizeVal").textContent = $("sigSize").value; render(); });
-  $("sigEmbed").addEventListener("change", ()=>{ renderSigInfo(); });
   bindDrop($("dropVerifyImg"), $("fileVerifyImg"), async (file)=>{
     try{
       const rec = await loadImageFile(file, "verify");
@@ -2523,8 +2407,8 @@ function init(){
     S.sig = null; renderKeyUI(); render();
   });
 
-  // geser QR di preview
-  const pv = $("cardPreview");
+  // geser QR di preview kartu user (panel pengajuan)
+  const pv = $("approvedCanvas");
   let dragging = false, off = {x:0,y:0};
   function toImg(ev){
     const r = pv.getBoundingClientRect();
@@ -2555,73 +2439,49 @@ function init(){
   pv.addEventListener("mousedown", startDrag); window.addEventListener("mousemove", moveDrag); window.addEventListener("mouseup", endDrag);
   pv.addEventListener("touchstart", startDrag, {passive:false}); window.addEventListener("touchmove", moveDrag, {passive:false}); window.addEventListener("touchend", endDrag);
 
-  // tanda tangan
+  // approve (manager): tanda tangan → draft barcode → server
   $("btnSign").addEventListener("click", async ()=>{
+    if (!S.currentReqId){ toast("Pilih permintaan dari antrean terlebih dahulu.", true); return; }
     const btn = $("btnSign"); btn.disabled = true;
     const old = btn.innerHTML; btn.innerHTML = "Memproses…";
     try{
       await signCard();
       $("payloadBox").value = S.sig.payload;
-      render(); renderSigInfo();
-      if (S.currentReqId){
-        try{
-          const r = await reqGet(S.currentReqId);
-          if (r && r.status === "menunggu"){
-            const cd = { ...(r.meta || {}), _layout: currentLayout() };
-            if (S.sigImg && S.sigImg.bytes) cd._sig = bytesToB64(S.sigImg.bytes);
-            await SB.updateRequest(S.currentReqId, { status:"disetujui", payload:S.sig.payload, kid:S.sig.kid, signed_by: S.session ? S.session.username : "", card_data: cd });
-          }
-        }catch(e){}
-        renderQueue(); renderMyRequests();
-      } else if (S.session && S.session.userId){
-        try{
-          const meta = { ...(S.signMeta || metaOf()), _layout: currentLayout() };
-          if (S.sigImg && S.sigImg.bytes) meta._sig = bytesToB64(S.sigImg.bytes);
-          await SB.createRequest({ created_by: S.session.userId, by_name: S.session.username,
-            card_name: S.card.name || "kartu.png", card_data: meta,
-            image_b64: bytesToB64(S.card.bytes), image_mime: "image/png",
-            status: "disetujui", note: "tanda tangan ad-hoc", payload: S.sig.payload, kid: S.sig.kid,
-            signed_by: S.session.username });
-        }catch(e){}
-      }
+      const qr = makeQrCanvas(S.sig.payload, 420, "M");
+      const oldCv = $("qrDraft");
+      qr.canvas.id = "qrDraft"; qr.canvas.classList.remove("hide");
+      qr.canvas.style.width = "240px"; qr.canvas.style.height = "240px";
+      if (oldCv && oldCv.replaceWith) oldCv.replaceWith(qr.canvas);
+      else $("qrDraftBox").appendChild(qr.canvas);
+      $("qrDraftEmpty").classList.add("hide");
+      try{
+        const r = await reqGet(S.currentReqId);
+        if (r && r.status === "menunggu"){
+          const cd = { ...(r.meta || {}) };
+          delete cd._layout;
+          if (S.sigImg && S.sigImg.bytes) cd._sig = bytesToB64(S.sigImg.bytes);
+          await SB.updateRequest(S.currentReqId, { status:"disetujui", payload:S.sig.payload, kid:S.sig.kid, signed_by: S.session ? S.session.username : "", card_data: cd });
+        }
+      }catch(e){}
+      renderQueue(); renderMyRequests();
       pushHistory(S.sig.obj);
-      toast("Kartu berhasil ditandatangani" + (S.currentReqId ? " & permintaan disetujui" : ""));
+      toast("Disetujui — draft barcode jadi. User yang menempatkan QR & mengunduh kartu.");
     }catch(e){ toast(e.message || String(e), true); }
-    btn.disabled = false; btn.innerHTML = old;
+    btn.innerHTML = old;
     renderSigInfo();
   });
-
-  $("btnReset").addEventListener("click", ()=>{
-    S.sig = null; $("payloadBox").value = ""; render(); renderSigInfo(); toast("Tanda tangan dihapus dari pratinjau");
-  });
-
-  // unduh
-  $("btnDownload").addEventListener("click", ()=>{
-    const fmt = $("dlFormat").value;
-    const scale = Number($("dlScale").value);
-    const base = (S.sig && S.sig.obj.cid ? S.sig.obj.cid : "kartu").replace(/[^\w.-]+/g,"_");
-    if (fmt === "qr"){
-      const qr = makeQrCanvas(S.sig.payload, 900, $("qrEcl").value || "M");
-      qr.canvas.toBlob(b=>downloadBlob(b, `QR-${base}.png`), "image/png");
-      toast("QR diunduh"); return;
-    }
-    const c = drawCard(null, { scale });
-    const name = `${base}-signed.${fmt === "jpg" ? "jpg" : "png"}`;
-    if (fmt === "jpg"){
-      c.toBlob(b=>downloadBlob(b, name), "image/jpeg", 0.95);
-    } else {
-      c.toBlob(b=>downloadBlob(b, name), "image/png");
-    }
-    toast("Kartu diunduh: " + name);
-  });
-
-  $("btnPrint").addEventListener("click", ()=>{
-    const c = drawCard(null, { scale: 2 });
-    const url = c.toDataURL("image/png");
-    const w = window.open("", "_blank");
-    const html = `<html><head><title>Cetak kartu</title><style>@page{margin:10mm}body{margin:0;display:grid;place-items:center}img{max-width:100%;max-height:96vh}</style></head><body><img src="${url}"><script>window.onload=function(){setTimeout(function(){window.print()},250)}<\/script></body></html>`;
-    if (!w){ toast("Popup diblokir browser", true); return; }
-    w.document.write(html); w.document.close();
+  $("btnRejectReq").addEventListener("click", async ()=>{
+    if (!S.currentReqId) return;
+    const note = prompt("Catatan penolakan (terlihat oleh user):"); if (note === null) return;
+    try{
+      await SB.updateRequest(S.currentReqId, { status:"ditolak", note, signed_by: S.session ? S.session.username : "" });
+      toast("Permintaan ditolak");
+      S.currentReqId = null; S.signMeta = null; S.sig = null;
+      S.card = { file:null, name:"", img:null, bytes:null, w:0, h:0 };
+      $("payloadBox").value = "";
+      $("reqSummary").innerHTML = `<dt>Permintaan aktif</dt><dd>Belum ada — pilih <b>Proses</b> dari antrean.</dd>`;
+      render(); renderSigInfo(); renderQueue();
+    }catch(e){ toast(e.message, true); }
   });
 
   $("btnCopyPayload").addEventListener("click", async ()=>{
@@ -2797,9 +2657,9 @@ function init(){
 window.KartuSign = {
   version: "1.0.0",
   state: S,
-  _debug: { render, renderSigInfo, encryptBlob, decryptBlob, importPrivateFromText, computeKid, makeQrCanvas, signCard, loadImageFile, computeBadge, applyOrientation, buildVerifierHtml, trustSources, verifySignatureOf, getSelfHtml: ()=>SELF_HTML, canonicalString, buildCompactSig, expandCompactSig, computeSigRect,
+  _debug: { render, renderSigInfo, encryptBlob, decryptBlob, importPrivateFromText, computeKid, makeQrCanvas, signCard, loadImageFile, computeBadge, applyOrientation, buildVerifierHtml, trustSources, verifySignatureOf, getSelfHtml: ()=>SELF_HTML, canonicalString, buildCompactSig, expandCompactSig, renderApproved,
   SB, sbAddAccount, sbEnsureFirstManager, sbProfileOrThrow, doSignup, renderAccounts, rowToRec, bytesToB64, b64ToBytes, loadHistory, pushHistory, startPolling, stopPolling,
-    reqAll, reqGet, loadRequest, submitRequest, doLogin, logout, applyRole, bytesToImageRec, renderQueue, renderMyRequests, unlockKey, loadKeys, persistKeys, ensureKey, prepareApprovedCard, currentLayout, applyLayout, userDownload, imageFromURL },
+    reqAll, reqGet, loadRequest, submitRequest, doLogin, logout, applyRole, bytesToImageRec, renderQueue, renderMyRequests, unlockKey, loadKeys, persistKeys, ensureKey, prepareApprovedCard, userDownload, imageFromURL },
   algos: ALG,
   utils: { b64u, b64uToBytes, hexShort, canonicalString, derToPem, pemToDer },
   qr: {

@@ -16,52 +16,52 @@ Proses kriptografi (pembuatan kunci, hash, tanda tangan, QR, rendering) tetap be
         │  Ajukan Approval  ──► tersimpan di database (tabel requests)
         ▼
 [antrean manager — otomatis ter-update (polling)] ── Proses / Tolak(+catatan)
-        │  (manager, dari perangkat mana pun)
+        │  (manager: menunya HANYA approve + preview barcode;
+        │   tanda tangan PNG manager dilampirkan sekali saja)
         ▼
 SHA-256( string kanonik(metadata) + byte gambar )  ──► ditandatangani kunci privat
         │                                              (ECDSA P-256 / RSA-2048)
         ▼
-[QR code berisi metadata + hash + tanda tangan] ──► ditempel ke kartu
-        │
-        ▼
-[status → disetujui + payload & tata letak tersimpan di server]
+[status → disetujui + payload tersimpan; DRAFT BARCODE langsung
+ tampil di panel manager]  — tanda tangan PNG TIDAK dicetak ke kartu,
+ hanya dilampirkan (hash-nya diikat di payload, versi ringkasnya di QR)
         │
         ▼  (kembali ke USER)
 [USER membuka tab Pengajuan → "Unduh Kartu"]
-   kartu dirender ulang di perangkat user, PERSIS dgn tata letak
-   & tanda tangan basah manager → unduh PNG/JPG/QR · cetak
+   USER SENDIRI menempatkan QR pada kartu (posisi/ukuran/rotasi/
+   caption/drag di pratinjau) → unduh PNG/JPG/QR saja · cetak
         │
         ▼
 [petugas memverifikasi: tempel isi QR]  ✔ ASLI / ✖ TIDAK ASLI
+   + tanda tangan PNG manager TAMPIL di kolom hasil pemeriksaan
 ```
 
 ### Role & login (2 level, Supabase Auth)
 
 | Level | Akun | Akses |
 |---|---|---|
-| **1 — user** | dibuat manager (atau daftar sendiri) | Tab *Pengajuan Kartu* (upload kartu + isi data, **mengunduh kartu yang sudah disetujui**), *Verifikasi*, *Bantuan*. Tidak bisa menandatangani & tidak melihat kunci. |
-| **2 — manager** | **akun pertama yang dibuat otomatis menjadi manager** | Tab *Approval & Tanda Tangan* (antrean, tanda tangan, unduh/cetak), *Kunci & Akun*, *Riwayat*, *Verifikasi*, *Bantuan*. |
+| **1 — user** | dibuat manager (atau daftar sendiri) | Tab *Pengajuan Kartu* (upload kartu + isi data, **menempatkan QR pada kartu lalu mengunduh/mencetak kartu yang sudah disetujui**), *Verifikasi*, *Bantuan*. Tidak bisa menandatangani & tidak melihat kunci. |
+| **2 — manager** | **akun pertama yang dibuat otomatis menjadi manager** | Tab *Approval & Barcode* (**hanya** antrean + approve/tolak + pratinjau draft barcode + lampir tanda tangan PNG sekali), *Kunci & Akun*, *Riwayat*, *Verifikasi*, *Bantuan*. |
 
 - Login diverifikasi **Supabase Auth** (password di-hash bcrypt di server); sesi + refresh token disimpan di localStorage browser → tetap login antar-kunjungan, berlaku lintas perangkat.
 - **Row Level Security (RLS)** di database: user hanya melihat pengajuannya sendiri; hanya manager yang bisa mengubah status, mengelola kunci & akun. Kebijakan ditegakkan di server, bukan cuma di UI.
 - Manager dapat **menambah akun** (user/manager), **menaik-menurunkan level**, dan **menonaktifkan akun**; minimal satu manager aktif harus tersisa.
 - Password sesi manager juga dipakai sebagai frasa sandi bawaan kunci privat (bila kolom frasa sandi kosong) dan **otomatis membuka kunci terenkripsi saat login di perangkat mana pun**. Ganti password → kunci di server otomatis dibungkus ulang dengan password baru.
 - Antrean pengajuan & riwayat **tersinkron otomatis** (polling ±7 detik + tombol muat ulang).
-- **Pembagian tugas**: manager menyetujui/menandatangani; **user yang mengunduh kartu hasil**. Saat approval, server menyimpan payload QR + **tata letak badge manager** (posisi/ukuran/rotasi/caption/watermark/ECL) + **gambar tanda tangan basah** (bila ada) — kartu dirender ulang di perangkat user **identik** dengan yang dilihat manager, tanpa user perlu akses kunci apa pun.
+- **Pembagian tugas (v2.2)**: tugas manager **hanya memberikan approval** — sekali approve, **draft barcode langsung jadi** (payload ditandatangani kunci privat, QR draft tampil di panel manager, status + payload tersimpan di server). **Tanda tangan PNG manager** diunggah sekali di panel approval dan ikut terlampir saat approve: hash-nya diikat ke payload (`sh`), versi ringkas monokrom disematkan otomatis di QR (`ss`), dan PNG asli disimpan di server (`card_data._sig`) — **tanda tangan TIDAK dicetak pada kartu**, tetapi **muncul di kolom hasil pemeriksaan keaslian** (PNG asli dari server bila verifikator login & request ditemukan; jika tidak (offline/verifier), versi ringkas diekspansi dari isi QR — tetap jalan tanpa server). **Menempatkan QR pada kartu** (posisi/ukuran/rotasi/caption/drag di pratinjau) **serta mengunduh/mencetak adalah tugas USER**, dari tab *Pengajuan Kartu*.
 - File `KartuSign-Verifier.html` tetap **tanpa login & tanpa server** (mode verifier, kunci publik tertanam) agar petugas luar cukup menempel isi QR.
 
 ### Langkah pakai (versi singkat)
 
 0. **Sekali saja**: siapkan proyek Supabase (lihat bagian *Setup Supabase* di bawah) → buka aplikasi → isi **Supabase URL + anon key** di panel *Hubungkan ke Supabase* → **Buat akun baru** (akun pertama otomatis jadi manager).
 1. Buka URL aplikasi → **masuk** (user atau manager).
-   - *(user)* ajukan kartu → tunggu status **disetujui** → klik **Unduh Kartu** di tabel *pengajuan saya* → simpan PNG/JPG/QR atau cetak.
-2. Tab **Kunci & Akun** → pilih algoritma → isi frasa sandi (opsional, sangat disarankan) → **Buat kunci baru** (tersimpan terenkripsi di server).
+2. *(manager)* Tab **Kunci & Akun** → pilih algoritma → isi frasa sandi (opsional, sangat disarankan) → **Buat kunci baru** (tersimpan terenkripsi di server).
    - Unduh **kunci publik (.pem)** dan sebarkan ke petugas verifikator.
    - Unduh **cadangan kunci privat terenkripsi** dan simpan di tempat aman.
-3. Tab **Tanda Tangani Kartu** → klik area upload / tarik gambar kartu.
-4. Isi data approval, atur posisi & ukuran QR (bisa digeser langsung di pratinjau).
-5. Klik **Beri Tanda Tangan Digital** → **Unduh Kartu** atau **Cetak**.
-6. Cek hasilnya di tab **Verifikasi Keaslian**: **tempel isi QR** → tekan *Periksa Keaslian Kartu* → **✓ KARTU INI ASLI** / **✗ KARTU TIDAK ASLI**. Tanpa kunci publik, tanpa upload gambar.
+3. *(manager)* Tab **Approval & Barcode** → **unggah tanda tangan PNG sekali** di kartu *Tanda tangan manager* → pilih permintaan dari antrean (**Proses**) → **Approve & Buat Barcode** (atau **Tolak** + catatan). Draft barcode langsung tampil — selesai, tugas manager hanya itu.
+4. *(user)* ajukan kartu → tunggu status **disetujui** → klik **Unduh Kartu** di tabel *pengajuan saya*.
+5. *(user)* **tempatkan QR pada kartu**: posisi/ukuran/rotasi/caption/watermark — bisa digeser langsung di pratinjau → **Unduh PNG / Unduh JPG / Unduh QR saja / Cetak**.
+6. Cek hasilnya di tab **Verifikasi Keaslian**: **tempel isi QR** → tekan *Periksa Keaslian Kartu* → **✓ KARTU INI ASLI** / **✗ KARTU TIDAK ASLI**, dan **tanda tangan PNG manager tampil di hasil pemeriksaan**. Tanpa kunci publik, tanpa upload gambar.
 
 ### Orientasi kartu (default: POTRET)
 
@@ -294,6 +294,14 @@ Folder `deploy/` sudah siap unggah: `index.html` (aplikasi), `contoh-kartu.png`,
 - HTTPS bawaan Netlify membuat Web Crypto API aktif penuh (syarat secure context terpenuhi).
 
 ## Catatan rilis
+
+**v2.2 (revisi atas masukan pengguna — manager hanya approve, user yang menempatkan QR)**
+- **Menu manager dirampingkan**: tugasnya **hanya memberikan approval** (atau menolak + catatan) dan **melihat pratinjau draft barcode**. Sekali approve, barcode langsung jadi dalam bentuk draft (QR tampil di panel + payload tersimpan di server). Kontrol tata letak kartu, tombol unduh/cetak kartu, dan tanda tangan ad-hoc di luar antrean **dihapus** dari panel manager; pratinjau kartu di panel manager kini kartu polos (tanpa QR).
+- **Tanda tangan PNG manager** diunggah **sekali** di panel approval dan otomatis ikut saat approve: disimpan utuh di server (`card_data._sig`), hash-nya diikat ke payload (`sh`), dan versi ringkasnya **selalu** disematkan di QR (`ss`). Tanda tangan **tidak dicetak pada kartu**.
+- **Hasil verifikasi menampilkan tanda tangan PNG manager**: PNG asli dari server bila pemeriksa login dan request-nya ditemukan; jika tidak (offline/verifier), versi ringkas diekspansi langsung dari isi QR.
+- **Menempatkan QR pada kartu kini tugas USER**: semua kontrol tata letak (posisi, ukuran, margin, rotasi, caption + ukuran teks, watermark, ECL, orientasi, drag langsung di pratinjau) pindah ke panel *Pengajuan Kartu*, bersama tombol **Unduh PNG / JPG / QR saja / Cetak**.
+- Tidak perlu migrasi skema Supabase (`_sig` menumpang di `card_data` jsonb; `_layout` tidak lagi ditulis).
+- Uji otomatis: 132 → **140 kasus** (alur ad-hoc dihapus; approve → draft QR → user menempatkan & mengunduh; approve lintas perangkat; tanda tangan PNG muncul di hasil verifikasi dari server & dari `ss`).
 
 **v2.1 (revisi atas masukan pengguna — user mengunduh kartu)**
 - **Setelah approval, USER yang mengunduh kartu** (tugas download pindah dari manager ke user): tombol **Unduh Kartu** muncul di tabel *pengajuan saya* untuk status *disetujui* → kartu dirender di perangkat user + tombol **Unduh PNG / Unduh JPG / Unduh QR saja / Cetak**.
