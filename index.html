@@ -61,6 +61,7 @@ input[type=text],input[type=password],input[type=number],input[type=date],select
 input:hover,select:hover,textarea:hover{border-color:#b9c4d8}
 input:focus,select:focus,textarea:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 3px rgba(79,70,229,.15)}
 textarea{resize:vertical;min-height:96px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px}
+input[readonly],textarea[readonly]{background:#f4f6fb;color:#334155;cursor:default}
 .row{display:grid;gap:12px}
 .row.c2{grid-template-columns:1fr 1fr}
 .row.c3{grid-template-columns:1fr 1fr 1fr}
@@ -297,8 +298,12 @@ canvas.qrthumb{image-rendering:pixelated;border:1px solid var(--line);border-rad
           <div class="sep"></div>
           <div class="row c2">
             <div class="field">
-              <label class="f" for="mCardId">Nomor / ID kartu</label>
-              <input type="text" id="mCardId" placeholder="KTR-2026-000123" autocomplete="off">
+              <label class="f" for="mCardId">Nomor / ID kartu <span class="chip gray" style="font-size:10px">otomatis</span></label>
+              <div class="flex" style="gap:8px;flex-wrap:nowrap">
+                <input type="text" id="mCardId" placeholder="PUR-2026-09-0001" autocomplete="off" readonly style="flex:1 1 auto;min-width:0">
+                <button class="btn sm" id="btnNewCid" type="button" title="Ambil nomor baru dari server">↻ Nomor baru</button>
+              </div>
+              <p class="hint">Format <b>PUR-tahun-bulan-0001</b> — 4 digit terakhir <b>increment otomatis</b> dari server (unik lintas pengguna, mulai lagi dari 0001 setiap bulan).</p>
             </div>
             <div class="field">
               <label class="f" for="mHolder">Nama pemegang kartu</label>
@@ -307,8 +312,8 @@ canvas.qrthumb{image-rendering:pixelated;border:1px solid var(--line);border-rad
           </div>
           <div class="row c2">
             <div class="field">
-              <label class="f" for="mApprover">Diajukan untuk disahkan oleh</label>
-              <input type="text" id="mApprover" placeholder="Kepala Divisi SDM" autocomplete="off">
+              <label class="f" for="mApprover">Diajukan untuk disahkan oleh <span class="chip gray" style="font-size:10px">tetap</span></label>
+              <input type="text" id="mApprover" value="Manager Purchasing" autocomplete="off" readonly>
             </div>
             <div class="field">
               <label class="f" for="mValid">Berlaku hingga</label>
@@ -316,8 +321,8 @@ canvas.qrthumb{image-rendering:pixelated;border:1px solid var(--line);border-rad
             </div>
           </div>
           <div class="field">
-            <label class="f" for="mReason">Keterangan / alasan</label>
-            <input type="text" id="mReason" placeholder="Kartu dinyatakan sah dan aktif" autocomplete="off">
+            <label class="f" for="mReason">Keterangan / alasan <span class="chip gray" style="font-size:10px">tetap</span></label>
+            <input type="text" id="mReason" value="Kartu ini dinyatakan Sah dan Asli di keluarkan oleh Purchasing Section" autocomplete="off" readonly>
           </div>
           <div class="sep"></div>
           <button class="btn primary" id="btnSubmitReq">
@@ -3282,7 +3287,9 @@ const SB = (() => {
     },
     async getRequest(id){ const rows = await rest("requests?id=eq." + id + "&select=*"); return (rows && rows[0]) || null; },
     async updateRequest(id, patch){ return rest("requests?id=eq." + id + "&select=*", { method: "PATCH", body: patch, prefer: "return=representation" }); },
-    async deleteRequest(id){ return rest("requests?id=eq." + id, { method: "DELETE" }); }
+    async deleteRequest(id){ return rest("requests?id=eq." + id, { method: "DELETE" }); },
+    async heartbeat(note){ return rest("heartbeat", { method: "POST", body: { id: "app", last_beat: new Date().toISOString(), note: note || "keep-alive aplikasi" }, prefer: "resolution=merge-duplicates" }); },
+    async nextCardId(){ return rest("rpc/next_card_id", { method: "POST", body: {} }); }
   };
 })();
 function bytesToB64(u8){
@@ -3431,6 +3438,7 @@ async function doLogin(){
     renderKeyUI(); renderQueue(); renderMyRequests(); renderAccounts();
     loadHistory().then(renderHistory).catch(()=>{});
     startPolling();
+    sendHeartbeat();
     toast("Selamat datang, " + (S.session.fullName || S.session.username) + " (" + (prof.role === "manager" ? "level 2 — manager" : "level 1 — user") + ")");
   }catch(e){
     try { await SB.logout(); } catch(_){}
@@ -3457,6 +3465,7 @@ async function doSignup(){
     switchTab(defaultTab());
     renderKeyUI(); renderQueue(); renderMyRequests(); renderAccounts();
     startPolling();
+    sendHeartbeat();
     toast(became ? "Akun dibuat — Anda menjadi MANAGER pertama (level 2)" : "Akun dibuat — level 1 (user). Manager dapat menaikkan level Anda.");
   }catch(e){
     const m = String(e.message || e);
@@ -3477,6 +3486,39 @@ async function logout(){
   toast("Sesi diakhiri");
 }
 function stopPolling(){ if (POLL_TIMER){ clearInterval(POLL_TIMER); POLL_TIMER = null; } }
+
+/* ---------------- keep-alive: cegah Supabase free-tier pause ----------------
+   Menulis 1 baris stempel waktu ke tabel `heartbeat` maksimal tiap 3 hari.
+   Dipicu saat aplikasi dibuka / login / koneksi disimpan, dan tiap 6 jam
+   selama tab terbuka. Untuk jaminan penuh (app tidak dibuka berminggu-minggu),
+   pakai cron eksternal — lihat supabase/keep-alive.yml & README.            */
+const BEAT_KEY = "kartusign.lastbeat.v1";
+async function sendHeartbeat(force){
+  try{
+    if (!SB.configured()) return false;
+    const now = Date.now();
+    let last = 0; try { last = Number(localStorage.getItem(BEAT_KEY) || 0); } catch(e){}
+    if (!force && last && now - last < 3*864e5) return false;   // throttle: cukup tiap 3 hari
+    await SB.heartbeat();
+    try { localStorage.setItem(BEAT_KEY, String(now)); } catch(e){}
+    return true;
+  }catch(e){ return false; }   // diam-diam — jangan pernah ganggu UI
+}
+
+/* ---------------- nomor kartu otomatis (PUR-tahun-bulan-NNNN) ----------------
+   Diambil dari RPC server `next_card_id()` agar unik lintas pengguna.
+   Dipanggil saat tab Pengajuan dibuka (bila kolom masih kosong), sesudah
+   pengajuan terkirim, atau manual lewat tombol "↻ Nomor baru".            */
+async function fetchNewCid(force){
+  try{
+    if (!SB.configured() || !S.session || S.session.role === "verifier") return "";
+    const el = $("mCardId"); if (!el) return "";
+    if (!force && el.value.trim()) return el.value.trim();
+    const id = await SB.nextCardId();
+    if (typeof id === "string" && /^PUR-\d{4}-\d{2}-\d{4}$/.test(id.trim())) el.value = id.trim();
+    return el.value.trim();
+  }catch(e){ return ""; }
+}
 let POLL_TIMER = null;
 function startPolling(){
   if (POLL_TIMER) clearInterval(POLL_TIMER);
@@ -3533,7 +3575,8 @@ async function bytesToImageRec(bytes, name){
 async function submitRequest(){
   if (!S.card.img){ toast("Muat gambar kartu terlebih dahulu.", true); return; }
   const meta = metaOf();
-  if (!meta.cid || !meta.hld){ toast("Nomor kartu dan nama pemegang wajib diisi.", true); return; }
+  if (!meta.cid){ toast("Nomor kartu otomatis belum terisi — klik \"↻ Nomor baru\". Bila tetap gagal, jalankan ulang supabase/schema.sql di server (RPC next_card_id).", true); return; }
+  if (!meta.hld){ toast("Nama pemegang kartu wajib diisi.", true); return; }
   if (!S.session || !S.session.userId){ toast("Login terlebih dahulu.", true); return; }
   const btn = $("btnSubmitReq"); if (btn) btn.disabled = true;
   try{
@@ -3545,6 +3588,7 @@ async function submitRequest(){
     });
     toast("Pengajuan terkirim ke antrean manager (server)");
     renderMyRequests();
+    fetchNewCid(true);   // siapkan nomor baru untuk kartu berikutnya
   }catch(e){ toast("Gagal mengirim pengajuan: " + (e.message || e), true); }
   if (btn) btn.disabled = false;
 }
@@ -4042,7 +4086,7 @@ function computeBadge(){
   const capLines = caption ? wrapText(caption, bw - pad*2, capFontCss) : [];
   const lineH = Math.round(capFs * 1.22);
   const capH = caption ? capLines.length*lineH + Math.round(pad*0.5) : 0;
-  const bh = bw + pad*2 + capH + (caption ? Math.round(pad*0.6) : 0);
+  const bh = caption ? bw + capH + Math.round(pad*1.5) : bw + pad*2;   // v2.4: QR digambar (bw-2pad) agar MUAT di dalam border
   const fw = rotate ? bh : bw, fh = rotate ? bw : bh;       // jejak (footprint) setelah rotasi
   const mx = Math.round(W*marginPct), my = Math.round(H*marginPct);
   const pos = $("qrPos").value;
@@ -4089,7 +4133,8 @@ function drawCard(target, opts){
   const needBadge = !!S.sig && $("qrOverlay").checked;
   if (needBadge){
     const b = computeBadge();
-    const qr = makeQrCanvas(S.sig.payload, Math.round(b.qrSize*scale), $("qrEcl").value || "M");
+    const qSide = Math.max(8, b.w - b.pad*2);   // sisi QR = lebar badge dikurangi padding kiri+kanan
+    const qr = makeQrCanvas(S.sig.payload, Math.round(qSide*scale), $("qrEcl").value || "M");
     g.save();
     g.translate(b.x*scale, b.y*scale);
     if ($("qrRotate").checked){
@@ -4101,19 +4146,19 @@ function drawCard(target, opts){
     g.fillStyle = "#fff";
     roundRect(g, 0, 0, b.w*scale, b.h*scale, Math.max(4, b.w*0.06*scale));
     g.fill();
-    g.strokeStyle = "rgba(15,23,42,.22)";
-    g.lineWidth = Math.max(1, 1.2*scale);
+    g.strokeStyle = "rgba(100,116,139,.6)";   // border abu-abu tegas MENUTUP seluruh QR + teks
+    g.lineWidth = Math.max(1, 1.5*scale);
     g.stroke();
     // QR
     g.imageSmoothingEnabled = false;
-    g.drawImage(qr.canvas, b.pad*scale, b.pad*scale, b.qrSize*scale, b.qrSize*scale);
+    g.drawImage(qr.canvas, b.pad*scale, b.pad*scale, qSide*scale, qSide*scale);
     g.imageSmoothingEnabled = true;
     // caption (teks besar di bawah QR, max 2 baris, rata tengah)
     if (b.caption && b.capLines && b.capLines.length){
       g.fillStyle = "#0f172a";
       g.font = `800 ${b.capFs*scale}px system-ui, -apple-system, "Segoe UI", Arial, sans-serif`;
       g.textAlign = "center"; g.textBaseline = "middle";
-      const topY = b.pad + b.qrSize + b.pad*0.3;
+      const topY = b.pad + qSide + b.pad*0.3;
       for (let i=0;i<b.capLines.length;i++){
         g.fillText(b.capLines[i], (b.w*scale)/2, (topY + b.lineH*(i+0.5))*scale, (b.w - b.pad*1.2)*scale);
       }
@@ -4257,6 +4302,7 @@ function switchTab(name){
     p.classList.toggle("hide", p.dataset.panel !== name);
   });
   window.scrollTo({ top:0, behavior:"smooth" });
+  if (name === "request") fetchNewCid();   // isi nomor otomatis bila masih kosong
 }
 
 /* ---------------- UI: render status ---------------- */
@@ -4598,6 +4644,13 @@ function init(){
   // file inputs
   bindDrop($("dropCard"), $("fileCard"), onCardFile);
   $("btnSubmitReq").addEventListener("click", submitRequest);
+  $("btnNewCid").addEventListener("click", async ()=>{
+    const btn = $("btnNewCid"); btn.disabled = true;
+    const id = await fetchNewCid(true);
+    btn.disabled = false;
+    if (id && /^PUR-/.test(id)) toast("Nomor kartu baru: " + id);
+    else toast("Gagal mengambil nomor dari server — jalankan ulang supabase/schema.sql (RPC next_card_id).", true);
+  });
   $("btnUserDlPng").addEventListener("click", ()=>userDownload("png"));
   $("btnUserDlJpg").addEventListener("click", ()=>userDownload("jpg"));
   $("btnUserDlQr").addEventListener("click", ()=>userDownload("qr"));
@@ -4885,6 +4938,7 @@ function init(){
     try{
       await SB.setConfig($("sbUrl").value, $("sbKey").value);
       applyRole();
+      sendHeartbeat();
       toast("Terhubung ke Supabase — silakan masuk atau buat akun");
     }catch(e){
       err.style.display = "block"; err.textContent = e.message || "Gagal menyimpan konfigurasi.";
@@ -4933,6 +4987,8 @@ function init(){
     render();
   })();
   updateTrustChip(); renderHistory();
+  setInterval(sendHeartbeat, 6*3600*1000);   // keep-alive selama tab terbuka (throttle 3 hari)
+  sendHeartbeat();
   $("mValid").value = new Date(Date.now() + 365*864e5).toISOString().slice(0,10);
   applyOrientation();
 }
@@ -4948,7 +5004,7 @@ window.KartuSign = {
   version: "1.0.0",
   state: S,
   _debug: { render, renderSigInfo, encryptBlob, decryptBlob, importPrivateFromText, computeKid, makeQrCanvas, signCard, loadImageFile, computeBadge, applyOrientation, buildVerifierHtml, trustSources, verifySignatureOf, getSelfHtml: ()=>SELF_HTML, canonicalString, buildCompactSig, expandCompactSig, renderApproved,
-  SB, sbAddAccount, sbEnsureFirstManager, sbProfileOrThrow, doSignup, renderAccounts, rowToRec, bytesToB64, b64ToBytes, loadHistory, pushHistory, startPolling, stopPolling,
+  SB, sbAddAccount, sbEnsureFirstManager, sbProfileOrThrow, doSignup, renderAccounts, rowToRec, bytesToB64, b64ToBytes, loadHistory, pushHistory, startPolling, stopPolling, sendHeartbeat, fetchNewCid,
     reqAll, reqGet, loadRequest, submitRequest, doLogin, logout, applyRole, bytesToImageRec, renderQueue, renderMyRequests, unlockKey, loadKeys, persistKeys, ensureKey, prepareApprovedCard, userDownload, imageFromURL },
   algos: ALG,
   utils: { b64u, b64uToBytes, hexShort, canonicalString, derToPem, pemToDer },

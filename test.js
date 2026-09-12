@@ -17,6 +17,8 @@ const backend = {
   tokens: new Map(),    // access_token -> {uid, refresh_token}
   refresh: new Map(),   // refresh_token -> uid
   profiles: [],         // {id,username,role,active,created_at}
+  heartbeat: [],        // {id,last_beat,note} — keep-alive
+  cardSeq: {},          // 'YYYY-MM' → nomor kartu terakhir
   signing_keys: [],     // {key_id,alg,kid,pubkey_pem,priv_enc,locked,created_by,created_at}
   requests: [],         // {id,created_by,by_name,card_name,card_data,image_b64,image_mime,status,note,payload,kid,signed_by,created_at,updated_at}
   log: []
@@ -132,6 +134,12 @@ async function sbFetch(urlStr, opts) {
   if (headers['apikey'] !== APIKEY) return resp(401, { code: 'PGRST301', message: 'No API key found in request' });
   const a = actorOf(headers);
   if (a === undefined) return resp(401, { code: 'PGRST301', message: 'Could not verify the identity of the user' });
+  if (url.includes('/rest/v1/rpc/next_card_id')) {          // v2.4: RPC nomor kartu otomatis
+    if (!a) return resp(401, { code: '42501', message: 'RLS' });
+    const per = new Date().toLocaleString('en-CA', { timeZone: 'Asia/Jakarta' }).slice(0, 7); // 'YYYY-MM'
+    backend.cardSeq[per] = (backend.cardSeq[per] || 0) + 1;
+    return resp(200, 'PUR-' + per + '-' + String(backend.cardSeq[per]).padStart(4, '0'));
+  }
   if (url.includes('/rest/v1/rpc/update_my_full_name')) {   // v2.3: security-definer RPC
     if (!a) return resp(401, { code: '42501', message: 'RLS' });
     const nm = String((body && body.nama) || '').trim();
@@ -142,8 +150,18 @@ async function sbFetch(urlStr, opts) {
   }
   const { table, params } = parseQuery(url);
   const method = (opts.method || 'GET').toUpperCase();
-  if (!['profiles', 'signing_keys', 'requests'].includes(table)) return resp(404, { message: 'table not found: ' + table });
+  if (!['profiles', 'signing_keys', 'requests', 'heartbeat'].includes(table)) return resp(404, { message: 'table not found: ' + table });
   const rows = backend[table];
+
+  if (table === 'heartbeat') {   // keep-alive: boleh anonim (RLS asli mengizinkan anon+authenticated)
+    if (method === 'GET') return resp(200, rows);
+    if (method === 'POST') {
+      if (!['app', 'cron'].includes(body.id)) return resp(400, { message: 'id heartbeat tidak valid' });
+      let rec = rows.find(h => h.id === body.id);
+      if (rec) Object.assign(rec, body); else { rec = { ...body }; rows.push(rec); }
+      return resp(201, (headers['prefer'] || '').includes('return=representation') ? [rec] : null);
+    }
+  }
 
   if (method === 'GET') {
     if (!a) return resp(200, []); // RLS: anon tidak melihat apa pun
@@ -299,6 +317,11 @@ const winA = domA.window, docA = winA.document;
   check('Panel Approval terbuka untuk manager', !panel(winA, 'approve').classList.contains('hide') && panel(winA, 'login').classList.contains('hide'));
   check('Server: profil pertama dipromosikan jadi manager', backend.profiles[0] && backend.profiles[0].role === 'manager' && backend.profiles[0].username === 'boss');
   check('Nama lengkap tersimpan di server, sesi & chip', backend.profiles[0].full_name === 'Budi Bos Besar' && KS.state.session.fullName === 'Budi Bos Besar' && /Budi Bos Besar \(boss\)/.test($('chipSession').textContent), $('chipSession').textContent);
+  check('Keep-alive: heartbeat tertulis otomatis ke server', backend.heartbeat.some(h => h.id === 'app' && h.last_beat), JSON.stringify(backend.heartbeat).slice(0, 90));
+  const beat2 = await D.sendHeartbeat();
+  check('Keep-alive: di-throttle (< 3 hari → tidak menulis lagi)', beat2 === false);
+  const beat3 = await D.sendHeartbeat(true);
+  check('Keep-alive: force → upsert, tetap 1 baris (tidak duplikat)', beat3 === true && backend.heartbeat.filter(h => h.id === 'app').length === 1);
   check('Sesi Supabase tersimpan di localStorage', !!winA.localStorage.getItem('kartusign.sb.session.v1'));
 
   /* ============ 3. MANAGER MENAMBAH AKUN (server) ============ */
@@ -429,6 +452,8 @@ const winA = domA.window, docA = winA.document;
     if (!(b.fx >= 0 && b.fy >= 0 && b.fx + b.fw <= KS.state.card.w && b.fy + b.fh <= KS.state.card.h)) fpOk = false;
   }
   check('Badge tetap di dalam kanvas (4 posisi)', fpOk);
+  { const bg = D.computeBadge(); const q = bg.w - bg.pad * 2;
+    check('Geometri badge: QR + caption MUAT di dalam border abu-abu', q >= 40 && bg.h >= bg.pad + q + bg.capH && bg.w >= bg.pad * 2 + q, 'w=' + bg.w + ' q=' + q + ' h=' + bg.h); }
   $('qrPos').value = 'br'; $('qrPos').dispatchEvent(new winA.Event('change'));
   const b16 = D.computeBadge();
   check('Caption ≥14% lebar badge', b16.capFs >= Math.round(b16.qrSize * 0.14), 'capFs=' + b16.capFs);
@@ -447,6 +472,11 @@ const winA = domA.window, docA = winA.document;
   DB.stopPolling();
   check('B: login siti → level 1, tab Pengajuan', /level 1/.test($B('chipSession').textContent) && !panel(winB, 'request').classList.contains('hide'));
   check('B: tab manager disembunyikan (approval/kunci/riwayat)', panel(winB, 'approve').classList.contains('hide') && panel(winB, 'keys').classList.contains('hide') && docB.querySelector('nav.tabs button[data-tab="approve"]').classList.contains('hide'));
+  const cidAuto = $B('mCardId').value;
+  check('B: ID kartu otomatis terisi, format PUR-tahun-bulan-NNNN', /^PUR-\d{4}-\d{2}-\d{4}$/.test(cidAuto), cidAuto);
+  check('B: pengesah & keterangan dikunci (readonly, nilai tetap)', $B('mApprover').readOnly && $B('mApprover').value === 'Manager Purchasing' && $B('mReason').readOnly && $B('mReason').value === 'Kartu ini dinyatakan Sah dan Asli di keluarkan oleh Purchasing Section');
+  const cidNext = await DB.SB.nextCardId();
+  check('B: nomor berikutnya increment +1 (periode sama)', cidNext.slice(0, -4) === cidAuto.slice(0, -4) && Number(cidNext.slice(-4)) === Number(cidAuto.slice(-4)) + 1, cidAuto + ' → ' + cidNext);
   const reqBytes = new Uint8Array(900).map((_, i) => (i * 13 + 5) & 0xff);
   await DB.loadImageFile(new winB.File([reqBytes], 'kartu-request.png', { type: 'image/png' }), 'card');
   $B('mCardId').value = 'KTR-REQ-001'; $B('mHolder').value = 'Siti Aminah'; $B('mValid').value = '2027-12-31';
@@ -455,6 +485,7 @@ const winA = domA.window, docA = winA.document;
   check('B: pengajuan terkirim ke SERVER (status menunggu, by_name = nama lengkap)', !!row1 && row1.status === 'menunggu' && row1.by_name === 'Siti Aminah', row1 && row1.by_name);
   check('B: gambar kartu ikut tersimpan (base64)', row1 && row1.image_b64 && row1.image_b64.length > 100);
   check('B: tabel "pengajuan saya" → menunggu', /menunggu/.test($B('myReqBody').textContent));
+  check('B: setelah submit, nomor baru otomatis diambil lagi', /^PUR-\d{4}-\d{2}-\d{4}$/.test($B('mCardId').value) && $B('mCardId').value !== cidAuto, $B('mCardId').value);
   $B('mCardId').value = '';
   const nBefore = backend.requests.length;
   $B('btnSubmitReq').click(); await sleep(300);

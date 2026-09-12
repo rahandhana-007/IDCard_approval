@@ -60,7 +60,7 @@ SHA-256( string kanonik(metadata) + byte gambar )  ──► ditandatangani kunc
    - Unduh **kunci publik (.pem)** dan sebarkan ke petugas verifikator.
    - Unduh **cadangan kunci privat terenkripsi** dan simpan di tempat aman.
 3. *(manager)* Tab **Approval & Barcode** → **unggah tanda tangan PNG sekali** di kartu *Tanda tangan manager* → pilih permintaan dari antrean (**Proses**) → **Approve & Buat Barcode** (atau **Tolak** + catatan). Draft barcode langsung tampil — selesai, tugas manager hanya itu.
-4. *(user)* ajukan kartu → tunggu status **disetujui** → klik **Unduh Kartu** di tabel *pengajuan saya*.
+4. *(user)* ajukan kartu — **nomor/ID kartu terisi otomatis** (`PUR-tahun-bulan-NNNN`), pengesah & keterangan sudah tetap — isi nama pemegang + masa berlaku → tunggu status **disetujui** → klik **Unduh Kartu** di tabel *pengajuan saya*.
 5. *(user)* **tempatkan QR pada kartu**: posisi/ukuran/rotasi/caption/watermark — bisa digeser langsung di pratinjau. Teks di bawah QR sudah otomatis terisi **"Digitaly Signed - Nama manager"** → **Unduh PNG / Unduh JPG / Unduh QR saja / Cetak**.
 6. Cek hasilnya di tab **Verifikasi Keaslian**: **tempel isi QR** → tekan *Periksa Keaslian Kartu* → **✓ KARTU INI ASLI** / **✗ KARTU TIDAK ASLI**, dan **tanda tangan PNG manager tampil di hasil pemeriksaan**. Tanpa kunci publik, tanpa upload gambar.
 
@@ -222,8 +222,9 @@ Bila ruang sempit: pilih ECL **L** dan aktifkan **Key ID ringkas**.
 | `qrcode-generator.js` | Library QR (Kazuhiko Arase, MIT) yang ditanam saat build |
 | `build.py` | Merakit `KartuSign.html` dari template + library (sekalian menulis `preview/` & `deploy/`) |
 | `supabase/schema.sql` | **Skema database Supabase** (tabel + trigger + kebijakan RLS) — jalankan di SQL Editor |
+| `supabase/keep-alive.yml` | Template cron **GitHub Actions** — heartbeat anti-pause tiap 3 hari (lihat *Menjaga Supabase tetap aktif*) |
 | `deploy/` | Folder siap deploy Netlify (`index.html` + `netlify.toml` + contoh kartu) |
-| `test.js` | Uji end-to-end otomatis (**149 kasus**) memakai jsdom + **mock server Supabase** (Auth/PostgREST/RLS), termasuk alur lintas-perangkat user→manager dan build+uji `IDCardManagement-Verifier.html` |
+| `test.js` | Uji end-to-end otomatis (**156 kasus**) memakai jsdom + **mock server Supabase** (Auth/PostgREST/RLS), termasuk alur lintas-perangkat user→manager dan build+uji `IDCardManagement-Verifier.html` |
 | `qrtest.js` | Uji round-trip QR: payload → matriks → decode |
 | `make_sample.py` | Pembangkit `contoh-kartu.png` |
 
@@ -272,6 +273,18 @@ cd preview && python3 -m http.server 8080 --bind 0.0.0.0
 
 > Keamanan: anon key memang untuk publik (dipakai browser); yang menjaga data adalah **RLS** di schema.sql. Jangan pernah menaruh *service_role key* di aplikasi.
 
+## Menjaga Supabase tetap aktif (anti-pause)
+
+Supabase **free tier** mem-pause proyek bila **tidak ada aktivitas API/database ±7 hari**. Data **tidak hilang** — proyek bisa dipulihkan dari *Dashboard → proyek → Restore* — tetapi aplikasi tidak bisa tersambung sampai dipulihkan. Cegah dengan dua lapis:
+
+1. **Heartbeat bawaan aplikasi (otomatis, tanpa konfigurasi)** — setiap aplikasi dibuka, login, atau koneksi disimpan — lalu tiap 6 jam selama tab terbuka — aplikasi menulis (upsert) satu baris stempel waktu ke tabel `heartbeat`. Ditrottle: **maksimal satu tulisan per 3 hari** per browser. Syarat: **jalankan ulang `supabase/schema.sql`** sekali agar tabel `heartbeat` terbentuk.
+   > Kelemahannya: bila tidak ada yang membuka aplikasi berhari-hari, heartbeat ini tidak berjalan — pakai lapis ke-2.
+2. **Cron eksternal (paling andal, tanpa perlu ada yang membuka aplikasi)**:
+   - **GitHub Actions** (gratis): simpan `supabase/keep-alive.yml` sebagai `.github/workflows/keep-alive.yml` di repositori GitHub mana pun → isi Secrets `SUPABASE_URL` + `SUPABASE_ANON_KEY` (nilai yang sama seperti di panel *Hubungkan ke Supabase*) → workflow meng-upsert `heartbeat` **tiap 3 hari**. Catatan: GitHub menonaktifkan schedule bila repo tidak aktif 60 hari — buka repo sesekali / trigger manual.
+   - **cron-job.org** (tanpa GitHub): buat request baru — Method `POST`; URL `https://xxxx.supabase.co/rest/v1/heartbeat`; Headers `apikey: <anon key>`, `Content-Type: application/json`, `Prefer: resolution=merge-duplicates`; Body `{"id":"cron","last_beat":"2026-01-01T00:00:00Z","note":"cron-job.org"}`; Schedule tiap 3 hari. (Nilai `last_beat` boleh tetap — yang dihitung Supabase adalah adanya request API yang masuk.)
+
+Cek keep-alive bekerja: **Dashboard → Table Editor → tabel `heartbeat`** — kolom `last_beat` baris `app`/`cron` harus ter-update.
+
 ## Deploy ke Netlify (online)
 
 Folder `deploy/` sudah siap unggah: `index.html` (aplikasi), `contoh-kartu.png`, `netlify.toml` (header keamanan + no-cache). Supabase tetap diakses langsung dari browser (CORS diizinkan bawaan), jadi tidak perlu konfigurasi tambahan di Netlify.
@@ -296,6 +309,14 @@ Folder `deploy/` sudah siap unggah: `index.html` (aplikasi), `contoh-kartu.png`,
 
 ## Catatan rilis
 
+**v2.4 (revisi atas masukan pengguna — nomor kartu otomatis + field pengajuan tetap)**
+- **Nomor / ID kartu dibuat otomatis oleh server** dengan format **`PUR-tahun-bulan-NNNN`** (contoh `PUR-2026-09-0001`): 4 digit terakhir **increment** atomik per bulan (zona Asia/Jakarta) lewat RPC `next_card_id()` + tabel `card_seq` — **unik lintas pengguna** walau dua orang mengajukan bersamaan, dan mulai lagi dari `0001` setiap ganti bulan. Kolomnya read-only; nomor diambil saat tab *Pengajuan* dibuka, sesudah pengajuan terkirim, atau manual lewat tombol **↻ Nomor baru**.
+- **"Diajukan untuk disahkan oleh" dikunci** = `Manager Purchasing` (read-only, ikut tertanda tangan di payload sebagai `apr`).
+- **"Keterangan / alasan" dikunci** = `Kartu ini dinyatakan Sah dan Asli di keluarkan oleh Purchasing Section` (read-only, payload `rsn`).
+- **Migrasi**: jalankan ulang `supabase/schema.sql` (menambah tabel `card_seq` + RPC `next_card_id`; aman untuk data lama). Tanpa migrasi, tombol ↻ menampilkan pesan error yang jelas.
+- **Perbaikan geometri badge QR**: sebelumnya QR digambar selebar badge penuh mulai dari posisi padding, sehingga barcode bisa menembus keluar border. Kini QR digambar sebesar sisi dalam badge (`lebar − 2×padding`) dan **border abu-abu tegas menutup seluruh QR + caption** dengan margin merata — sesuai laporan pengguna (kartu feri dengan QR keluar kotak).
+- Uji otomatis: 152 → **157 kasus** (format & auto-isi nomor, increment +1 via RPC, kunci field pengesah/keterangan, ambil nomor baru pasca-submit, geometri badge muat di dalam border).
+
 **v2.3 (revisi atas masukan pengguna — profil dengan Nama wajib + caption penanda tangan)**
 - **Pendaftaran profil wajib mengisi Nama lengkap** (minimal 2 karakter): di form *Buat akun baru* maupun saat manager menambah akun di tab *Kunci & Akun*. Nama disimpan di kolom baru `profiles.full_name` (server Supabase).
 - **Nama penanda tangan dicetak di bawah barcode**: saat user memuat kartu yang sudah disetujui, kolom *Teks di bawah QR* otomatis terisi **`Digitaly Signed - <Nama manager yang approve>`** (masih bisa diedit user sebelum mengunduh). Nama dilampirkan saat approval (`card_data._sname`); data lama tanpa nama jatuh ke username penanda tangan.
@@ -305,7 +326,8 @@ Folder `deploy/` sudah siap unggah: `index.html` (aplikasi), `contoh-kartu.png`,
 - **Rebrand tampilan**: nama aplikasi menjadi **ID Card Management**; sub-judul header menjadi *"Purchasing - Raw Material Section | ID Card Vendor Representative Approval"*; file verifier yang diunduh kini bernama `IDCardManagement-Verifier.html`. Nama API internal (`window.KartuSign`), prefiks payload (`KS3`), dan kunci localStorage tidak berubah — data & integrasi lama tetap jalan.
 - **Tab & panel *Bantuan* dihapus** atas masukan pengguna; caption penjelasan di panel login dan di kartu unggah tanda tangan manager dibuang (umpan balik unggah diganti toast singkat).
 - **Tampilan dipercantik**: header bergradien dengan aksen cahaya, tab bergaya kaca, kartu/tombol/input/tabel lebih halus (radius & bayangan lembut), toast & scrollbar bergaya baru — tetap satu file mandiri tanpa font/aset eksternal.
-- Uji otomatis: 140 → **149 kasus** (nama wajib di kedua form pendaftaran, nama tersimpan & tampil, `_sname` di approval, caption otomatis di kartu user, ganti nama via RPC + validasi).
+- **Anti-pause Supabase free tier**: tabel baru `heartbeat` (RLS longgar — hanya stempel waktu) + heartbeat otomatis dari aplikasi (saat dibuka/login, tiap 6 jam, throttle 3 hari) + template cron eksternal `supabase/keep-alive.yml` (GitHub Actions, tiap 3 hari) agar database tidak di-pause walau aplikasi tidak dibuka.
+- Uji otomatis: 140 → **152 kasus** (nama wajib di kedua form pendaftaran, nama tersimpan & tampil, `_sname` di approval, caption otomatis di kartu user, ganti nama via RPC + validasi, heartbeat tulis/throttle/upsert).
 
 **v2.2 (revisi atas masukan pengguna — manager hanya approve, user yang menempatkan QR)**
 - **Menu manager dirampingkan**: tugasnya **hanya memberikan approval** (atau menolak + catatan) dan **melihat pratinjau draft barcode**. Sekali approve, barcode langsung jadi dalam bentuk draft (QR tampil di panel + payload tersimpan di server). Kontrol tata letak kartu, tombol unduh/cetak kartu, dan tanda tangan ad-hoc di luar antrean **dihapus** dari panel manager; pratinjau kartu di panel manager kini kartu polos (tanpa QR).

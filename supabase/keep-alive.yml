@@ -1,0 +1,39 @@
+# =====================================================================
+# Keep-alive Supabase (anti-pause free tier) — GitHub Actions
+#
+# Cara pakai:
+#  1. Buat repositori GitHub (boleh private, gratis).
+#  2. Simpan file ini sebagai:  .github/workflows/keep-alive.yml
+#  3. Settings → Secrets and variables → Actions → New repository secret:
+#       SUPABASE_URL        = https://xxxx.supabase.co   (sama seperti di aplikasi)
+#       SUPABASE_ANON_KEY   = anon key publik            (sama seperti di aplikasi)
+#  4. Jalankan sekali manual: tab Actions → "Supabase keep-alive" → Run workflow.
+#
+# Menulis 1 baris stempel waktu ke tabel `heartbeat` setiap 3 hari
+# (Supabase free tier mem-pause proyek bila tidak ada aktivitas ±7 hari).
+# Catatan: GitHub menonaktifkan workflow terjadwal bila repositori tidak
+# aktif 60 hari — buka repo sesekali, atau pakai alternatif cron-job.org
+# (lihat README bagian "Menjaga Supabase tetap aktif").
+# =====================================================================
+name: Supabase keep-alive (anti-pause)
+
+on:
+  schedule:
+    - cron: "20 2 */3 * *"      # tiap 3 hari pukul 02:20 UTC (09:20 WIB)
+  workflow_dispatch: {}         # bisa dipicu manual kapan saja
+
+jobs:
+  heartbeat:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Upsert baris heartbeat
+        run: |
+          curl -sS --fail -X POST "$SUPABASE_URL/rest/v1/heartbeat" \
+            -H "apikey: $SUPABASE_ANON_KEY" \
+            -H "Content-Type: application/json" \
+            -H "Prefer: resolution=merge-duplicates" \
+            -d "{\"id\":\"cron\",\"last_beat\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",\"note\":\"keep-alive GitHub Actions\"}"
+          echo "Heartbeat terkirim."
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}

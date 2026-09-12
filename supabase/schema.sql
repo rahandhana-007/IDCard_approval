@@ -6,6 +6,8 @@
 --   profiles      : username + nama lengkap + role (user/manager) + status aktif, terhubung ke auth.users
 --   signing_keys  : kunci tanda tangan (privat disimpan TERENKRIPSI frasa sandi)
 --   requests      : antrean pengajuan kartu (user → manager) + hasil approval
+--   heartbeat     : keep-alive anti-pause (free tier) — ditulis aplikasi/cron tiap ±3 hari
+--   card_seq      : counter nomor kartu otomatis (PUR-tahun-bulan-NNNN) per bulan
 --
 -- Prasyarat: matikan "Confirm email" di
 --   Authentication → Providers → Email → Confirm email = OFF
@@ -92,6 +94,59 @@ begin
 end; $$;
 revoke all on function public.update_my_full_name(text) from public;
 grant execute on function public.update_my_full_name(text) to authenticated;
+
+-- ---------- heartbeat (keep-alive anti-pause free tier) ----------
+-- Supabase free tier mem-pause proyek bila tidak ada aktivitas API ±7 hari.
+-- Aplikasi menulis baris id='app' (max tiap 3 hari); cron eksternal menulis id='cron'.
+-- Sengaja boleh ditulis anonim: isinya cuma stempel waktu, tanpa data sensitif.
+create table if not exists public.heartbeat (
+  id        text primary key check (id in ('app','cron')),
+  last_beat timestamptz not null default now(),
+  note      text not null default ''
+);
+
+alter table public.heartbeat enable row level security;
+
+drop policy if exists heartbeat_insert on public.heartbeat;
+create policy heartbeat_insert on public.heartbeat
+  for insert to anon, authenticated with check (true);
+
+drop policy if exists heartbeat_update on public.heartbeat;
+create policy heartbeat_update on public.heartbeat
+  for update to anon, authenticated using (true) with check (true);
+
+drop policy if exists heartbeat_select on public.heartbeat;
+create policy heartbeat_select on public.heartbeat
+  for select to anon, authenticated using (true);
+
+-- ---------- card_seq (nomor kartu otomatis PUR-tahun-bulan-NNNN) ----------
+-- Counter per periode bulan (zona Asia/Jakarta). Penomoran lewat RPC atomic
+-- di bawah sehingga unik lintas pengguna walau diajukan bersamaan.
+create table if not exists public.card_seq (
+  period text primary key,               -- 'YYYY-MM'
+  last_n integer not null default 0
+);
+
+alter table public.card_seq enable row level security;
+
+drop policy if exists card_seq_select on public.card_seq;
+create policy card_seq_select on public.card_seq
+  for select to authenticated using (true);
+
+-- tiap panggilan: increment counter bulan berjalan → kembalikan ID kartu baru
+create or replace function public.next_card_id()
+returns text language plpgsql security definer set search_path = public as $$
+declare
+  p text := to_char(now() at time zone 'Asia/Jakarta', 'YYYY-MM');
+  n int;
+begin
+  insert into public.card_seq (period, last_n) values (p, 1)
+    on conflict (period) do update set last_n = public.card_seq.last_n + 1
+    returning last_n into n;
+  return 'PUR-' || p || '-' || lpad(n::text, 4, '0');
+end; $$;
+revoke all on function public.next_card_id() from public;
+grant execute on function public.next_card_id() to authenticated;
 
 -- ---------- signing_keys ----------
 create table if not exists public.signing_keys (
