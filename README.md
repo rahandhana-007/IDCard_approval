@@ -24,17 +24,22 @@ SHA-256( string kanonik(metadata) + byte gambar )  ──► ditandatangani kunc
 [QR code berisi metadata + hash + tanda tangan] ──► ditempel ke kartu
         │
         ▼
-[unduh PNG/JPG · cetak · salin payload · arsipkan di riwayat]
+[status → disetujui + payload & tata letak tersimpan di server]
+        │
+        ▼  (kembali ke USER)
+[USER membuka tab Pengajuan → "Unduh Kartu"]
+   kartu dirender ulang di perangkat user, PERSIS dgn tata letak
+   & tanda tangan basah manager → unduh PNG/JPG/QR · cetak
         │
         ▼
-[petugas memverifikasi dengan kunci publik + gambar asli]  ✔ VALID / ✖ TIDAK VALID
+[petugas memverifikasi: tempel isi QR]  ✔ ASLI / ✖ TIDAK ASLI
 ```
 
 ### Role & login (2 level, Supabase Auth)
 
 | Level | Akun | Akses |
 |---|---|---|
-| **1 — user** | dibuat manager (atau daftar sendiri) | Tab *Pengajuan Kartu* (upload kartu + isi data), *Verifikasi*, *Bantuan*. Tidak bisa menandatangani & tidak melihat kunci. |
+| **1 — user** | dibuat manager (atau daftar sendiri) | Tab *Pengajuan Kartu* (upload kartu + isi data, **mengunduh kartu yang sudah disetujui**), *Verifikasi*, *Bantuan*. Tidak bisa menandatangani & tidak melihat kunci. |
 | **2 — manager** | **akun pertama yang dibuat otomatis menjadi manager** | Tab *Approval & Tanda Tangan* (antrean, tanda tangan, unduh/cetak), *Kunci & Akun*, *Riwayat*, *Verifikasi*, *Bantuan*. |
 
 - Login diverifikasi **Supabase Auth** (password di-hash bcrypt di server); sesi + refresh token disimpan di localStorage browser → tetap login antar-kunjungan, berlaku lintas perangkat.
@@ -42,12 +47,14 @@ SHA-256( string kanonik(metadata) + byte gambar )  ──► ditandatangani kunc
 - Manager dapat **menambah akun** (user/manager), **menaik-menurunkan level**, dan **menonaktifkan akun**; minimal satu manager aktif harus tersisa.
 - Password sesi manager juga dipakai sebagai frasa sandi bawaan kunci privat (bila kolom frasa sandi kosong) dan **otomatis membuka kunci terenkripsi saat login di perangkat mana pun**. Ganti password → kunci di server otomatis dibungkus ulang dengan password baru.
 - Antrean pengajuan & riwayat **tersinkron otomatis** (polling ±7 detik + tombol muat ulang).
+- **Pembagian tugas**: manager menyetujui/menandatangani; **user yang mengunduh kartu hasil**. Saat approval, server menyimpan payload QR + **tata letak badge manager** (posisi/ukuran/rotasi/caption/watermark/ECL) + **gambar tanda tangan basah** (bila ada) — kartu dirender ulang di perangkat user **identik** dengan yang dilihat manager, tanpa user perlu akses kunci apa pun.
 - File `KartuSign-Verifier.html` tetap **tanpa login & tanpa server** (mode verifier, kunci publik tertanam) agar petugas luar cukup menempel isi QR.
 
 ### Langkah pakai (versi singkat)
 
 0. **Sekali saja**: siapkan proyek Supabase (lihat bagian *Setup Supabase* di bawah) → buka aplikasi → isi **Supabase URL + anon key** di panel *Hubungkan ke Supabase* → **Buat akun baru** (akun pertama otomatis jadi manager).
 1. Buka URL aplikasi → **masuk** (user atau manager).
+   - *(user)* ajukan kartu → tunggu status **disetujui** → klik **Unduh Kartu** di tabel *pengajuan saya* → simpan PNG/JPG/QR atau cetak.
 2. Tab **Kunci & Akun** → pilih algoritma → isi frasa sandi (opsional, sangat disarankan) → **Buat kunci baru** (tersimpan terenkripsi di server).
    - Unduh **kunci publik (.pem)** dan sebarkan ke petugas verifikator.
    - Unduh **cadangan kunci privat terenkripsi** dan simpan di tempat aman.
@@ -215,7 +222,7 @@ Bila ruang sempit: pilih ECL **L** dan aktifkan **Key ID ringkas**.
 | `build.py` | Merakit `KartuSign.html` dari template + library (sekalian menulis `preview/` & `deploy/`) |
 | `supabase/schema.sql` | **Skema database Supabase** (tabel + trigger + kebijakan RLS) — jalankan di SQL Editor |
 | `deploy/` | Folder siap deploy Netlify (`index.html` + `netlify.toml` + contoh kartu) |
-| `test.js` | Uji end-to-end otomatis (**119 kasus**) memakai jsdom + **mock server Supabase** (Auth/PostgREST/RLS), termasuk alur lintas-perangkat user→manager dan build+uji `KartuSign-Verifier.html` |
+| `test.js` | Uji end-to-end otomatis (**132 kasus**) memakai jsdom + **mock server Supabase** (Auth/PostgREST/RLS), termasuk alur lintas-perangkat user→manager dan build+uji `KartuSign-Verifier.html` |
 | `qrtest.js` | Uji round-trip QR: payload → matriks → decode |
 | `make_sample.py` | Pembangkit `contoh-kartu.png` |
 
@@ -229,7 +236,7 @@ python3 build.py
 
 ```bash
 npm install jsdom jsqr --no-audit --no-fund   # sekali saja
-node test.js      # 119 kasus: setup server, signup/login, RLS, kunci terenkripsi di server,
+node test.js      # 132 kasus: setup server, signup/login, RLS, kunci terenkripsi di server, unduh kartu oleh user,
                   # alur user→manager LINTAS PERANGKAT (2+ window jsdom berbagi mock backend),
                   # ganti password + re-wrap kunci, restore sesi, verifier build, kripto v2/v3
 node qrtest.js    # round-trip decode QR di 4 level koreksi galat
@@ -287,6 +294,13 @@ Folder `deploy/` sudah siap unggah: `index.html` (aplikasi), `contoh-kartu.png`,
 - HTTPS bawaan Netlify membuat Web Crypto API aktif penuh (syarat secure context terpenuhi).
 
 ## Catatan rilis
+
+**v2.1 (revisi atas masukan pengguna — user mengunduh kartu)**
+- **Setelah approval, USER yang mengunduh kartu** (tugas download pindah dari manager ke user): tombol **Unduh Kartu** muncul di tabel *pengajuan saya* untuk status *disetujui* → kartu dirender di perangkat user + tombol **Unduh PNG / Unduh JPG / Unduh QR saja / Cetak**.
+- Hasil **dijamin identik** dengan tampilan di layar manager: saat menyetujui, manager menyimpan `_layout` (posisi, ukuran, margin, rotasi, teks & ukuran caption, watermark, overlay, ECL, orientasi, ukuran tanda tangan basah, koordinat custom) dan `_sig` (byte tanda tangan basah, bila tidak disematkan sebagai `ss`) ke record pengajuan di server.
+- Manager tetap dapat mengunduh/mencetak langsung untuk **kartu ad-hoc** (di luar antrean).
+- Perbaikan bug latent: pratinjau crash (S.sig null) bila tanda tangan basah dimuat lalu metadata diedit sebelum menandatangani.
+- Uji otomatis: 119 → **132 kasus** (tombol unduh user, rekonstruksi payload/gambar/tata letak lintas perangkat, round-trip tanda tangan basah via server).
 
 **v2.0 (revisi atas masukan pengguna — database online)**
 - **Backend Supabase**: login/akun via Supabase Auth (bcrypt + JWT), data via Postgres dengan **Row Level Security** (`supabase/schema.sql`).

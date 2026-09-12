@@ -308,7 +308,7 @@ canvas.qrthumb{image-rendering:pixelated;border:1px solid var(--line);border-rad
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
             Ajukan Approval ke Manager
           </button>
-          <p class="hint">Pengajuan masuk ke antrean manager. Setelah disahkan, QR tanda tangan dibuat oleh manager (level 2) — user tidak dapat menandatangani.</p>
+          <p class="hint">Pengajuan masuk ke antrean manager. Setelah disahkan, QR tanda tangan dibuat oleh manager (level 2) — user tidak dapat menandatangani, tetapi <b>user yang mengunduh kartu hasilnya</b> (tombol <i>Unduh Kartu</i> muncul di tabel pengajuan saya setelah status <i>disetujui</i>).</p>
         </div>
       </div>
     </div>
@@ -329,7 +329,24 @@ canvas.qrthumb{image-rendering:pixelated;border:1px solid var(--line);border-rad
               <tbody id="myReqBody"><tr><td colspan="5" class="empty">Belum ada pengajuan.</td></tr></tbody>
             </table>
           </div>
-          <p class="hint">Status: <span class="chip amber">menunggu</span> → <span class="chip green">disetujui</span> (payload QR bisa disalin) atau <span class="chip red">ditolak</span> (lihat catatan).</p>
+          <p class="hint">Status: <span class="chip amber">menunggu</span> → <span class="chip green">disetujui</span> (muncul tombol <b>Unduh Kartu</b> + payload QR bisa disalin) atau <span class="chip red">ditolak</span> (lihat catatan).</p>
+        </div>
+      </div>
+
+      <div class="card hide" id="approvedBox">
+        <h2><span class="n">3</span> Kartu disetujui — unduh hasilnya</h2>
+        <div class="body">
+          <p class="hint" id="approvedInfo" style="margin-top:0"></p>
+          <div class="preview" id="approvedBoxBody">
+            <canvas id="approvedCanvas"></canvas>
+          </div>
+          <div class="btnrow" style="margin-top:12px">
+            <button class="btn primary" id="btnUserDlPng">Unduh PNG</button>
+            <button class="btn" id="btnUserDlJpg">Unduh JPG</button>
+            <button class="btn" id="btnUserDlQr">Unduh QR saja</button>
+            <button class="btn" id="btnUserPrint">Cetak</button>
+          </div>
+          <p class="hint">Kartu dirender ulang di perangkat Anda <b>persis dengan tata letak &amp; tanda tangan basah yang dipakai manager</b> (tersimpan bersama approval di server). QR-nya berisi tanda tangan digital yang dapat diverifikasi siapa pun.</p>
         </div>
       </div>
     </div>
@@ -752,12 +769,12 @@ canvas.qrthumb{image-rendering:pixelated;border:1px solid var(--line);border-rad
       <div class="body">
         <ol style="margin:0;padding-left:20px;font-size:14px;line-height:1.75">
           <li><b>Hubungkan Supabase</b> sekali saja (URL + anon key, lihat panel pengaturan server), lalu <b>buat akun / masuk</b>. Akun pertama otomatis menjadi <b>manager (level 2)</b>; manager menambah akun <b>user (level 1)</b> di tab <i>Kunci &amp; Akun</i>. Login &amp; data tersinkron antar perangkat.</li>
-          <li><b>(user, dari perangkat mana pun)</b> Upload gambar kartu, isi nama/ID/masa berlaku, lalu <b>Ajukan Approval</b> — pengajuan tersimpan di server dan langsung masuk antrean manager.</li>
+          <li><b>(user, dari perangkat mana pun)</b> Upload gambar kartu, isi nama/ID/masa berlaku, lalu <b>Ajukan Approval</b> — pengajuan tersimpan di server dan langsung masuk antrean manager. Setelah disetujui, <b>unduh kartu hasilnya</b> dari tabel <i>pengajuan saya</i> (PNG/JPG/QR/cetak).</li>
           <li><b>(manager)</b> Buat kunci sekali saja di tab <i>Kunci &amp; Akun</i> — kunci privat disimpan <b>terenkripsi frasa sandi</b> di server, sehingga manager dapat menandatangani dari perangkat mana pun.</li>
           <li><b>(manager)</b> Di tab <i>Approval &amp; Tanda Tangan</i>, pilih permintaan dari antrean (atau muat kartu ad-hoc).</li>
           <li>Aplikasi menghitung <b>SHA-256(metadata + byte gambar)</b>, lalu menandatanganinya dengan kunci privat.</li>
           <li>Hasil tanda tangan dikemas jadi <b>QR code</b> dan ditempelkan ke kartu sesuai posisi/ukuran pilihan Anda.</li>
-          <li><b>Unduh PNG/JPG</b> atau <b>cetak</b> kartunya; status permintaan berubah menjadi <i>disetujui</i> dan terlihat oleh user.</li>
+          <li>Status permintaan berubah menjadi <i>disetujui</i> — <b>user mengunduh kartunya sendiri</b> di tab <i>Pengajuan Kartu</i> (tombol <b>Unduh Kartu</b>): kartu dirender ulang di perangkat user <b>persis</b> dengan tata letak &amp; tanda tangan basah manager. Untuk kartu ad-hoc, manager tetap dapat mengunduh/mencetak langsung.</li>
           <li>Petugas memeriksa keaslian di tab <i>Verifikasi</i>: <b>cukup tempel isi QR</b> → hasil <b>KARTU INI ASLI</b> atau <b>TIDAK ASLI</b>. Tanpa kunci publik, tanpa upload gambar.</li>
           <li>Agar verifikasi bekerja di perangkat petugas, unduh <b>KartuSign-Verifier.html</b> dari tab <i>Kunci &amp; Keamanan</i> (kunci publik Anda tertanam di dalamnya) dan bagikan file itu.</li>
         </ol>
@@ -929,7 +946,7 @@ const S = {
   sig: null,                          // {payload(string), obj, sigB64, hashB64, ts}
   session: null,                      // {username, role:'user'|'manager'|'verifier', ts}
   sessionPass: "",                    // password sesi (default frasa sandi kunci)
-  currentReqId: null, signMeta: null,
+  currentReqId: null, signMeta: null, userApprovedId: null,
   qr: { x:0, y:0 },                   // posisi bebas (koordinat gambar asli)
   history: []
 };
@@ -1227,6 +1244,7 @@ async function doSignup(){
 }
 async function logout(){
   S.session = null; S.sessionPass = ""; S.currentReqId = null; S.signMeta = null;
+  S.userApprovedId = null;
   S.history = [];
   S.keys = { ES256:null, RS256:null };
   SB_KEYS_CACHE = [];
@@ -1370,12 +1388,94 @@ async function renderMyRequests(){
   tb.innerHTML = all.map(r=>`<tr>
     <td>${esc(fmtDate(r.ts))}</td><td>${esc(r.meta.cid || "—")}</td><td>${esc(r.meta.hld || "—")}</td>
     <td>${statusChip(r.status)}${r.note ? `<br><span class="hint">${esc(r.note)}</span>` : ""}</td>
-    <td>${r.payload ? `<button class="btn sm" data-pay="${esc(r.id)}">Salin QR</button>` : "—"}</td>
+    <td>${r.payload ? `<button class="btn sm primary" data-dl="${esc(r.id)}">Unduh Kartu</button> <button class="btn sm" data-pay="${esc(r.id)}">Salin QR</button>` : "—"}</td>
   </tr>`).join("");
+  tb.querySelectorAll("[data-dl]").forEach(b=>b.onclick = async ()=>{
+    try{ await prepareApprovedCard(b.dataset.dl); }catch(e){ toast(e.message || "Gagal memuat kartu", true); }
+  });
   tb.querySelectorAll("[data-pay]").forEach(b=>b.onclick = async ()=>{
     const r = all.find(x=>x.id === b.dataset.pay); if (!r) return;
     try{ await copyText(r.payload); toast("Payload QR disalin"); }catch(e){ toast("Gagal menyalin", true); }
   });
+}
+
+/* ---------------- kartu hasil approval: dirender & diunduh oleh USER ---------------- */
+function currentLayout(){
+  return {
+    pos: $("qrPos").value, size: $("qrSize").value, margin: $("qrMargin").value,
+    cap: $("qrCapSize").value, capText: $("qrCaption").value, rotate: $("qrRotate").checked,
+    wm: $("wmOn").checked, overlay: $("qrOverlay").checked, ecl: $("qrEcl").value,
+    orient: $("orient").value, sigSize: $("sigSize").value,
+    custom: { x: S.qr.x, y: S.qr.y }
+  };
+}
+function applyLayout(L){
+  if (!L) return;
+  const setV = (id, v)=>{ const el = $(id); if (!el || v == null) return; if (el.type === "checkbox") el.checked = !!v; else el.value = v; };
+  setV("qrPos", L.pos); setV("qrSize", L.size); setV("qrMargin", L.margin);
+  setV("qrCapSize", L.cap); setV("qrCaption", L.capText); setV("qrRotate", L.rotate);
+  setV("wmOn", L.wm); setV("qrOverlay", L.overlay); setV("qrEcl", L.ecl);
+  setV("orient", L.orient); setV("sigSize", L.sigSize);
+  if (L.custom && typeof L.custom.x === "number"){ S.qr.x = L.custom.x; S.qr.y = L.custom.y; }
+}
+function imageFromURL(url, name){
+  return new Promise((res, rej)=>{
+    const img = new Image();
+    img.onload = ()=>res({ file:null, name:name || "ttd.png", img, bytes:null, w:img.naturalWidth, h:img.naturalHeight });
+    img.onerror = ()=>rej(new Error("Gambar tanda tangan tidak dapat dirender."));
+    img.src = url;
+  });
+}
+async function prepareApprovedCard(id){
+  const r = await reqGet(id);
+  if (!r) throw new Error("Pengajuan tidak ditemukan.");
+  if (r.status !== "disetujui" || !r.payload) throw new Error("Pengajuan belum disetujui manager.");
+  if (!r.cardBytes) throw new Error("Gambar kartu tidak tersedia di server.");
+  const obj = JSON.parse(r.payload);
+  const rec = await bytesToImageRec(r.cardBytes, r.cardName || "kartu.png");
+  const meta = { ...r.meta }; const L = meta._layout; const sigStored = meta._sig;
+  delete meta._layout; delete meta._sig;
+  S.card = rec; S.signMeta = meta; S.currentReqId = null; S.userApprovedId = id;
+  applyLayout(L);
+  S.sig = { payload: r.payload, obj, sigB64: obj.s || "", hashB64: obj.h || "", ts: obj.ts,
+            alg: obj.alg, kid: obj.kid || r.kid, digestB64: "", publicPem: "" };
+  S.sigImg = null;
+  try{
+    if (obj.ss) S.sigImg = await imageFromURL(await expandCompactSig(obj.ss), "ttd.png");
+    else if (sigStored) S.sigImg = await bytesToImageRec(b64ToBytes(sigStored), "ttd.png");
+  }catch(e){ /* kartu tetap diunduh tanpa lapisan tanda tangan basah */ }
+  const box = $("approvedBox"); box.classList.remove("hide");
+  $("approvedInfo").innerHTML = `<b>${esc(meta.cid || "kartu")}</b> · ${esc(meta.hld || "")} · disetujui oleh <b>${esc(r.decidedBy || "manager")}</b> · ${esc(fmtDate(r.decidedTs || r.ts))}`;
+  const cv = $("approvedCanvas");
+  drawCard(cv, { scale: 1 });
+  const wrap = $("approvedBoxBody");
+  cv.style.width = Math.min((wrap ? wrap.clientWidth : 640) - 24, S.card.w) + "px";
+  cv.style.height = "auto";
+  if (box.scrollIntoView) { try{ box.scrollIntoView({ behavior:"smooth", block:"start" }); }catch(e){} }
+  toast("Kartu disetujui dimuat — siap diunduh");
+}
+function userDownload(fmt){
+  if (!S.sig || !S.userApprovedId){ toast("Muat kartu yang sudah disetujui terlebih dahulu.", true); return; }
+  const base = String(S.sig.obj.cid || "kartu").replace(/[^\w.-]+/g, "_");
+  if (fmt === "qr"){
+    const qr = makeQrCanvas(S.sig.payload, 900, $("qrEcl").value || "M");
+    qr.canvas.toBlob(b=>downloadBlob(b, `QR-${base}.png`), "image/png");
+    toast("QR diunduh"); return;
+  }
+  const c = drawCard(null, { scale: 2 });
+  const name = `${base}-signed.${fmt === "jpg" ? "jpg" : "png"}`;
+  if (fmt === "jpg") c.toBlob(b=>downloadBlob(b, name), "image/jpeg", 0.95);
+  else c.toBlob(b=>downloadBlob(b, name), "image/png");
+  toast("Kartu diunduh: " + name);
+}
+function userPrint(){
+  if (!S.sig || !S.userApprovedId){ toast("Muat kartu yang sudah disetujui terlebih dahulu.", true); return; }
+  const c = drawCard(null, { scale: 2 });
+  const url = c.toDataURL("image/png");
+  const w = window.open("", "_blank");
+  if (!w){ toast("Popup diblokir browser", true); return; }
+  w.document.write(`<html><head><title>Cetak kartu</title><style>@page{margin:10mm}body{margin:0;display:grid;place-items:center}img{max-width:100%;max-height:96vh}</style></head><body><img src="${url}"><script>window.onload=function(){setTimeout(function(){window.print()},250)}<\/script></body></html>`);
+  w.document.close();
 }
 
 /* ---------------- kunci ---------------- */
@@ -1787,7 +1887,7 @@ function drawCard(target, opts){
     g.restore();
   }
 
-  const needBadge = (S.sig && $("qrOverlay").checked) || !!S.sigImg;
+  const needBadge = !!S.sig && ($("qrOverlay").checked || !!S.sigImg);
   if (needBadge){
     const b = computeBadge();
     const qr = makeQrCanvas(S.sig.payload, Math.round(b.qrSize*scale), $("qrEcl").value || "M");
@@ -2336,6 +2436,10 @@ function init(){
     }catch(e){ toast(e.message, true); }
   });
   $("btnSubmitReq").addEventListener("click", submitRequest);
+  $("btnUserDlPng").addEventListener("click", ()=>userDownload("png"));
+  $("btnUserDlJpg").addEventListener("click", ()=>userDownload("jpg"));
+  $("btnUserDlQr").addEventListener("click", ()=>userDownload("qr"));
+  $("btnUserPrint").addEventListener("click", userPrint);
   $("btnLogin").addEventListener("click", doLogin);
   $("liPass").addEventListener("keydown", (e)=>{ if (e.key === "Enter") doLogin(); });
   $("btnLogout").addEventListener("click", logout);
@@ -2463,13 +2567,16 @@ function init(){
         try{
           const r = await reqGet(S.currentReqId);
           if (r && r.status === "menunggu"){
-            await SB.updateRequest(S.currentReqId, { status:"disetujui", payload:S.sig.payload, kid:S.sig.kid, signed_by: S.session ? S.session.username : "" });
+            const cd = { ...(r.meta || {}), _layout: currentLayout() };
+            if (S.sigImg && S.sigImg.bytes) cd._sig = bytesToB64(S.sigImg.bytes);
+            await SB.updateRequest(S.currentReqId, { status:"disetujui", payload:S.sig.payload, kid:S.sig.kid, signed_by: S.session ? S.session.username : "", card_data: cd });
           }
         }catch(e){}
         renderQueue(); renderMyRequests();
       } else if (S.session && S.session.userId){
         try{
-          const meta = S.signMeta || metaOf();
+          const meta = { ...(S.signMeta || metaOf()), _layout: currentLayout() };
+          if (S.sigImg && S.sigImg.bytes) meta._sig = bytesToB64(S.sigImg.bytes);
           await SB.createRequest({ created_by: S.session.userId, by_name: S.session.username,
             card_name: S.card.name || "kartu.png", card_data: meta,
             image_b64: bytesToB64(S.card.bytes), image_mime: "image/png",
@@ -2692,7 +2799,7 @@ window.KartuSign = {
   state: S,
   _debug: { render, renderSigInfo, encryptBlob, decryptBlob, importPrivateFromText, computeKid, makeQrCanvas, signCard, loadImageFile, computeBadge, applyOrientation, buildVerifierHtml, trustSources, verifySignatureOf, getSelfHtml: ()=>SELF_HTML, canonicalString, buildCompactSig, expandCompactSig, computeSigRect,
   SB, sbAddAccount, sbEnsureFirstManager, sbProfileOrThrow, doSignup, renderAccounts, rowToRec, bytesToB64, b64ToBytes, loadHistory, pushHistory, startPolling, stopPolling,
-    reqAll, reqGet, loadRequest, submitRequest, doLogin, logout, applyRole, bytesToImageRec, renderQueue, renderMyRequests, unlockKey, loadKeys, persistKeys, ensureKey },
+    reqAll, reqGet, loadRequest, submitRequest, doLogin, logout, applyRole, bytesToImageRec, renderQueue, renderMyRequests, unlockKey, loadKeys, persistKeys, ensureKey, prepareApprovedCard, currentLayout, applyLayout, userDownload, imageFromURL },
   algos: ALG,
   utils: { b64u, b64uToBytes, hexShort, canonicalString, derToPem, pemToDer },
   qr: {
