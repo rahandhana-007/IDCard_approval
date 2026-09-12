@@ -99,7 +99,7 @@ async function sbFetch(urlStr, opts) {
       if (backend.profiles.some(p => p.username === uname)) return resp(422, { msg: 'User already registered' });
       const u = { id: uid(), email, password: body.password, username: uname };
       backend.users.push(u);
-      backend.profiles.push({ id: u.id, username: uname, role: 'user', active: true, created_at: nowIso() }); // trigger handle_new_user
+      backend.profiles.push({ id: u.id, username: uname, full_name: (body.data && body.data.full_name) || '', role: 'user', active: true, created_at: nowIso() }); // trigger handle_new_user (v2.3: + full_name)
       return resp(200, { ...makeSession(u), user: { id: u.id, email } });
     }
     if (url.includes('/token?grant_type=password')) {
@@ -132,6 +132,14 @@ async function sbFetch(urlStr, opts) {
   if (headers['apikey'] !== APIKEY) return resp(401, { code: 'PGRST301', message: 'No API key found in request' });
   const a = actorOf(headers);
   if (a === undefined) return resp(401, { code: 'PGRST301', message: 'Could not verify the identity of the user' });
+  if (url.includes('/rest/v1/rpc/update_my_full_name')) {   // v2.3: security-definer RPC
+    if (!a) return resp(401, { code: '42501', message: 'RLS' });
+    const nm = String((body && body.nama) || '').trim();
+    if (nm.length < 2) return resp(400, { message: 'Nama lengkap minimal 2 karakter' });
+    const pr = backend.profiles.find(x => x.id === a.uid);
+    if (pr) pr.full_name = nm;
+    return resp(204, null);
+  }
   const { table, params } = parseQuery(url);
   const method = (opts.method || 'GET').toUpperCase();
   if (!['profiles', 'signing_keys', 'requests'].includes(table)) return resp(404, { message: 'table not found: ' + table });
@@ -274,7 +282,11 @@ const winA = domA.window, docA = winA.document;
   /* ============ 2. SIGNUP: akun pertama = manager otomatis ============ */
   $('btnToSignup').click(); await sleep(50);
   check('Form daftar terbuka', !$('signupBox').classList.contains('hide') && $('loginBox').classList.contains('hide'));
-  $('suUser').value = 'BO'; $('suPass').value = 'boss12345'; $('suPass2').value = 'boss12345';
+  $('suName').value = ''; $('suUser').value = 'boss'; $('suPass').value = 'boss12345'; $('suPass2').value = 'boss12345';
+  $('btnSignup').click(); await sleep(150);
+  check('Pendaftaran TANPA Nama ditolak (wajib)', /Nama lengkap wajib/.test($('suErr').textContent) && backend.users.length === 0, $('suErr').textContent);
+  $('suName').value = 'Budi Bos Besar';
+  $('suUser').value = 'BO';
   $('btnSignup').click(); await sleep(150);
   check('Username tidak valid ditolak', /Username 3/.test($('suErr').textContent), $('suErr').textContent);
   $('suUser').value = 'boss'; $('suPass2').value = 'beda';
@@ -286,18 +298,23 @@ const winA = domA.window, docA = winA.document;
   check('Signup akun pertama → login sebagai manager (level 2)', /level 2/.test($('chipSession').textContent), $('chipSession').textContent);
   check('Panel Approval terbuka untuk manager', !panel(winA, 'approve').classList.contains('hide') && panel(winA, 'login').classList.contains('hide'));
   check('Server: profil pertama dipromosikan jadi manager', backend.profiles[0] && backend.profiles[0].role === 'manager' && backend.profiles[0].username === 'boss');
+  check('Nama lengkap tersimpan di server, sesi & chip', backend.profiles[0].full_name === 'Budi Bos Besar' && KS.state.session.fullName === 'Budi Bos Besar' && /Budi Bos Besar \(boss\)/.test($('chipSession').textContent), $('chipSession').textContent);
   check('Sesi Supabase tersimpan di localStorage', !!winA.localStorage.getItem('kartusign.sb.session.v1'));
 
   /* ============ 3. MANAGER MENAMBAH AKUN (server) ============ */
   docA.querySelector('nav.tabs button[data-tab="keys"]').click(); await sleep(200);
   check('Tabel akun menampilkan boss', /boss/.test($('accBody').textContent));
-  $('accUser').value = 'siti'; $('accRole').value = 'user'; $('accPass').value = 'siti12345';
+  $('accName').value = ''; $('accUser').value = 'noname'; $('accRole').value = 'user'; $('accPass').value = 'noname123';
+  $('btnAddAcc').click(); await sleep(400);
+  check('Tambah akun TANPA Nama ditolak', !backend.profiles.some(p => p.username === 'noname'));
+  $('accName').value = 'Siti Aminah'; $('accUser').value = 'siti'; $('accRole').value = 'user'; $('accPass').value = 'siti12345';
   $('btnAddAcc').click(); await sleep(600);
   check('Akun user "siti" dibuat di server', backend.profiles.some(p => p.username === 'siti' && p.role === 'user') && /siti/.test($('accBody').textContent));
-  $('accUser').value = 'staff2'; $('accRole').value = 'manager'; $('accPass').value = 'staff12345';
+  check('Nama lengkap akun tersimpan & tampil di tabel akun', backend.profiles.find(p => p.username === 'siti').full_name === 'Siti Aminah' && /Siti Aminah/.test($('accBody').textContent));
+  $('accName').value = 'Staff Kedua'; $('accUser').value = 'staff2'; $('accRole').value = 'manager'; $('accPass').value = 'staff12345';
   $('btnAddAcc').click(); await sleep(600);
   check('Akun manager "staff2" dibuat dgn role manager', backend.profiles.some(p => p.username === 'staff2' && p.role === 'manager'));
-  $('accUser').value = 'siti'; $('accPass').value = 'apapun123';
+  $('accName').value = 'Siti Kembar'; $('accUser').value = 'siti'; $('accPass').value = 'apapun123';
   $('btnAddAcc').click(); await sleep(400);
   check('Username duplikat ditolak server', backend.profiles.filter(p => p.username === 'siti').length === 1);
 
@@ -435,7 +452,7 @@ const winA = domA.window, docA = winA.document;
   $B('mCardId').value = 'KTR-REQ-001'; $B('mHolder').value = 'Siti Aminah'; $B('mValid').value = '2027-12-31';
   $B('btnSubmitReq').click(); await sleep(900);
   const row1 = backend.requests.find(r => (r.card_data || {}).cid === 'KTR-REQ-001');
-  check('B: pengajuan terkirim ke SERVER (status menunggu)', !!row1 && row1.status === 'menunggu' && row1.by_name === 'siti');
+  check('B: pengajuan terkirim ke SERVER (status menunggu, by_name = nama lengkap)', !!row1 && row1.status === 'menunggu' && row1.by_name === 'Siti Aminah', row1 && row1.by_name);
   check('B: gambar kartu ikut tersimpan (base64)', row1 && row1.image_b64 && row1.image_b64.length > 100);
   check('B: tabel "pengajuan saya" → menunggu', /menunggu/.test($B('myReqBody').textContent));
   $B('mCardId').value = '';
@@ -462,6 +479,7 @@ const winA = domA.window, docA = winA.document;
   check('A: payload VALID terhadap gambar yang dikirim user', (await KS.verify(pubPem, row1.payload, reqBytes)).valid === true);
   check('A: tanda tangan manager terikat (sh) + ringkasannya di QR (ss)', typeof pObj.sh === 'string' && pObj.sh.length === 43 && typeof pObj.ss === 'string');
   check('A: PNG tanda tangan dilampirkan ke approval (_sig di server)', !!row1.card_data._sig && Buffer.from(row1.card_data._sig, 'base64').length === 611);
+  check('A: nama penyetuju ikut dilampirkan (_sname)', row1.card_data._sname === 'Budi Bos Besar');
   { const qd = $('qrDraft'); check('A: draft barcode (QR) tampil di panel manager', qd && !qd.classList.contains('hide') && qd.width > 300 && $('qrDraftEmpty').classList.contains('hide') && $('payloadBox').value === row1.payload, 'w=' + (qd && qd.width)); }
   check('A: chip status = di-approve & tombol approve terkunci lagi', /di-approve/.test($('chipSig').textContent) && $('btnSign').disabled === true);
   const payBtn = docA.querySelector('#queueBody [data-pay]');
@@ -482,6 +500,9 @@ const winA = domA.window, docA = winA.document;
   check('B: tanda tangan manager TIDAK dicetak ke kartu (sigImg null)', KSB.state.sigImg === null);
   check('B: gambar kartu asli dipulihkan (900 byte)', KSB.state.card.bytes.length === reqBytes.length);
   check('B: kontrol penempatan QR tersedia di panel user', !!$B('qrPos') && !!$B('qrSize') && !!$B('qrRotate') && !!$B('qrCaption'));
+  check('B: caption bawah barcode = "Digitaly Signed - Nama manager"', $B('qrCaption').value === 'Digitaly Signed - Budi Bos Besar', $B('qrCaption').value);
+  const capB = DB.computeBadge();
+  check('B: caption nama ikut digambar ke badge', capB.caption === 'Digitaly Signed - Budi Bos Besar' && capB.capH > 0 && capB.capLines.join(' ').includes('Budi Bos Besar'));
   $B('qrPos').value = 'tl'; $B('qrPos').dispatchEvent(new winB.Event('change')); await sleep(200);
   const bB = DB.computeBadge();
   check('B: user memindahkan QR ke kiri-atas (drag/preset)', bB.fx < KSB.state.card.w / 2 && bB.fy < KSB.state.card.h / 2, 'fx=' + bB.fx + ' fy=' + bB.fy);
@@ -671,6 +692,14 @@ const winA = domA.window, docA = winA.document;
   $('qrShortKid').checked = false;
   const cv = KS.render(1);
   check('Render kartu menghasilkan canvas', !!cv && cv.width === 800);
+
+  /* ============ 19b. PROFIL: ganti nama lengkap sendiri (RPC server) ============ */
+  winA.__promptQueue.push('Budi Bos Baru');
+  $('btnChangeName').click(); await sleep(500);
+  check('A: ganti nama sendiri → tersimpan di server + sesi + chip', backend.profiles.find(p => p.username === 'boss').full_name === 'Budi Bos Baru' && KS.state.session.fullName === 'Budi Bos Baru' && /Budi Bos Baru/.test($('chipSession').textContent));
+  winA.__promptQueue.push('X');
+  $('btnChangeName').click(); await sleep(300);
+  check('A: nama < 2 karakter ditolak', KS.state.session.fullName === 'Budi Bos Baru' && backend.profiles.find(p => p.username === 'boss').full_name === 'Budi Bos Baru');
 
   /* ============ 20. LOGOUT membersihkan state lokal ============ */
   await D.logout(); await sleep(300);

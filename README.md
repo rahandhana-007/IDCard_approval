@@ -1,4 +1,4 @@
-# KartuSign — Tanda Tangan Digital (QR) untuk Kartu
+# ID Card Management — Tanda Tangan Digital (QR) untuk Kartu
 
 Aplikasi web **satu file HTML** untuk membubuhkan *digital signature* berupa **QR code** ke gambar kartu yang sudah siap, lalu mengunduh/mencetak kartu yang sudah disahkan — dengan **backend Supabase** (Auth + Postgres + Row Level Security) sehingga **akun, kunci, antrean pengajuan, dan riwayat tersinkron antar perangkat**.
 
@@ -40,27 +40,28 @@ SHA-256( string kanonik(metadata) + byte gambar )  ──► ditandatangani kunc
 
 | Level | Akun | Akses |
 |---|---|---|
-| **1 — user** | dibuat manager (atau daftar sendiri) | Tab *Pengajuan Kartu* (upload kartu + isi data, **menempatkan QR pada kartu lalu mengunduh/mencetak kartu yang sudah disetujui**), *Verifikasi*, *Bantuan*. Tidak bisa menandatangani & tidak melihat kunci. |
-| **2 — manager** | **akun pertama yang dibuat otomatis menjadi manager** | Tab *Approval & Barcode* (**hanya** antrean + approve/tolak + pratinjau draft barcode + lampir tanda tangan PNG sekali), *Kunci & Akun*, *Riwayat*, *Verifikasi*, *Bantuan*. |
+| **1 — user** | dibuat manager (atau daftar sendiri) | Tab *Pengajuan Kartu* (upload kartu + isi data, **menempatkan QR pada kartu lalu mengunduh/mencetak kartu yang sudah disetujui**), *Verifikasi*. Tidak bisa menandatangani & tidak melihat kunci. |
+| **2 — manager** | **akun pertama yang dibuat otomatis menjadi manager** | Tab *Approval & Barcode* (**hanya** antrean + approve/tolak + pratinjau draft barcode + lampir tanda tangan PNG sekali), *Kunci & Akun*, *Riwayat*, *Verifikasi*. |
 
+- **Nama lengkap wajib saat pendaftaran** (semua level) dan disimpan di server; nama manager yang menyetujui otomatis menjadi caption **"Digitaly Signed - Nama"** di bawah barcode pada kartu yang diunduh user. Akun dapat mengganti namanya sendiri lewat tombol *Ganti nama*.
 - Login diverifikasi **Supabase Auth** (password di-hash bcrypt di server); sesi + refresh token disimpan di localStorage browser → tetap login antar-kunjungan, berlaku lintas perangkat.
 - **Row Level Security (RLS)** di database: user hanya melihat pengajuannya sendiri; hanya manager yang bisa mengubah status, mengelola kunci & akun. Kebijakan ditegakkan di server, bukan cuma di UI.
 - Manager dapat **menambah akun** (user/manager), **menaik-menurunkan level**, dan **menonaktifkan akun**; minimal satu manager aktif harus tersisa.
 - Password sesi manager juga dipakai sebagai frasa sandi bawaan kunci privat (bila kolom frasa sandi kosong) dan **otomatis membuka kunci terenkripsi saat login di perangkat mana pun**. Ganti password → kunci di server otomatis dibungkus ulang dengan password baru.
 - Antrean pengajuan & riwayat **tersinkron otomatis** (polling ±7 detik + tombol muat ulang).
 - **Pembagian tugas (v2.2)**: tugas manager **hanya memberikan approval** — sekali approve, **draft barcode langsung jadi** (payload ditandatangani kunci privat, QR draft tampil di panel manager, status + payload tersimpan di server). **Tanda tangan PNG manager** diunggah sekali di panel approval dan ikut terlampir saat approve: hash-nya diikat ke payload (`sh`), versi ringkas monokrom disematkan otomatis di QR (`ss`), dan PNG asli disimpan di server (`card_data._sig`) — **tanda tangan TIDAK dicetak pada kartu**, tetapi **muncul di kolom hasil pemeriksaan keaslian** (PNG asli dari server bila verifikator login & request ditemukan; jika tidak (offline/verifier), versi ringkas diekspansi dari isi QR — tetap jalan tanpa server). **Menempatkan QR pada kartu** (posisi/ukuran/rotasi/caption/drag di pratinjau) **serta mengunduh/mencetak adalah tugas USER**, dari tab *Pengajuan Kartu*.
-- File `KartuSign-Verifier.html` tetap **tanpa login & tanpa server** (mode verifier, kunci publik tertanam) agar petugas luar cukup menempel isi QR.
+- File `IDCardManagement-Verifier.html` tetap **tanpa login & tanpa server** (mode verifier, kunci publik tertanam) agar petugas luar cukup menempel isi QR.
 
 ### Langkah pakai (versi singkat)
 
-0. **Sekali saja**: siapkan proyek Supabase (lihat bagian *Setup Supabase* di bawah) → buka aplikasi → isi **Supabase URL + anon key** di panel *Hubungkan ke Supabase* → **Buat akun baru** (akun pertama otomatis jadi manager).
+0. **Sekali saja**: siapkan proyek Supabase (lihat bagian *Setup Supabase* di bawah) → buka aplikasi → isi **Supabase URL + anon key** di panel *Hubungkan ke Supabase* → **Buat akun baru** (isi **Nama lengkap** — wajib; akun pertama otomatis jadi manager).
 1. Buka URL aplikasi → **masuk** (user atau manager).
 2. *(manager)* Tab **Kunci & Akun** → pilih algoritma → isi frasa sandi (opsional, sangat disarankan) → **Buat kunci baru** (tersimpan terenkripsi di server).
    - Unduh **kunci publik (.pem)** dan sebarkan ke petugas verifikator.
    - Unduh **cadangan kunci privat terenkripsi** dan simpan di tempat aman.
 3. *(manager)* Tab **Approval & Barcode** → **unggah tanda tangan PNG sekali** di kartu *Tanda tangan manager* → pilih permintaan dari antrean (**Proses**) → **Approve & Buat Barcode** (atau **Tolak** + catatan). Draft barcode langsung tampil — selesai, tugas manager hanya itu.
 4. *(user)* ajukan kartu → tunggu status **disetujui** → klik **Unduh Kartu** di tabel *pengajuan saya*.
-5. *(user)* **tempatkan QR pada kartu**: posisi/ukuran/rotasi/caption/watermark — bisa digeser langsung di pratinjau → **Unduh PNG / Unduh JPG / Unduh QR saja / Cetak**.
+5. *(user)* **tempatkan QR pada kartu**: posisi/ukuran/rotasi/caption/watermark — bisa digeser langsung di pratinjau. Teks di bawah QR sudah otomatis terisi **"Digitaly Signed - Nama manager"** → **Unduh PNG / Unduh JPG / Unduh QR saja / Cetak**.
 6. Cek hasilnya di tab **Verifikasi Keaslian**: **tempel isi QR** → tekan *Periksa Keaslian Kartu* → **✓ KARTU INI ASLI** / **✗ KARTU TIDAK ASLI**, dan **tanda tangan PNG manager tampil di hasil pemeriksaan**. Tanpa kunci publik, tanpa upload gambar.
 
 ### Orientasi kartu (default: POTRET)
@@ -137,7 +138,7 @@ const asli = ok && (hashCocok !== false);
 ### Sumber kunci terpercaya (tanpa tempel kunci)
 
 Urutan pemeriksaan aplikasi:
-1. **TRUST_STORE tertanam** — isi `KartuSign-Verifier.html` (kunci publik penerbit dibake-in saat unduh dari tab Kunci).
+1. **TRUST_STORE tertanam** — isi `IDCardManagement-Verifier.html` (kunci publik penerbit dibake-in saat unduh dari tab Kunci).
 2. **Kunci penandatangan di perangkat itu** (IndexedDB/localStorage).
 3. **Riwayat approval** di perangkat itu (tiap entri menyimpan kunci publik penerbit).
 4. *(opsional lanjutan)* kunci publik manual PEM/JWK.
@@ -148,14 +149,14 @@ Bila tidak ada kunci yang cocok → hasil **"? ISSUER TIDAK DIKENAL"** (bukan as
 ### Aplikasi verifier untuk petugas
 
 Di tab **Kunci & Keamanan** → **"Unduh Aplikasi Verifier (kunci tertanam)"**.
-Menghasilkan `KartuSign-Verifier.html`: salinan aplikasi dengan kunci publik Anda di dalam `TRUST_STORE`,
+Menghasilkan `IDCardManagement-Verifier.html`: salinan aplikasi dengan kunci publik Anda di dalam `TRUST_STORE`,
 membuka langsung tab Verifikasi (mode verifier). Petugas cukup: **tempel isi QR → Periksa → ✓ KARTU INI ASLI / ✗ KARTU TIDAK ASLI**.
 
 ---
 
 ## API JavaScript (untuk integrasi)
 
-Objek global `window.KartuSign` tersedia agar aplikasi ini bisa dipanggil dari sistem lain atau diotomasi lewat konsol browser:
+Objek global `window.KartuSign` tersedia agar aplikasi ini bisa dipanggil dari sistem lain atau diotomasi lewat konsol browser (nama API internal tetap `KartuSign` untuk kompatibilitas; nama tampilan aplikasi = **ID Card Management**):
 
 ```js
 await KartuSign.loadCard(fileOrBlobOrUrl);      // muat kartu
@@ -222,7 +223,7 @@ Bila ruang sempit: pilih ECL **L** dan aktifkan **Key ID ringkas**.
 | `build.py` | Merakit `KartuSign.html` dari template + library (sekalian menulis `preview/` & `deploy/`) |
 | `supabase/schema.sql` | **Skema database Supabase** (tabel + trigger + kebijakan RLS) — jalankan di SQL Editor |
 | `deploy/` | Folder siap deploy Netlify (`index.html` + `netlify.toml` + contoh kartu) |
-| `test.js` | Uji end-to-end otomatis (**132 kasus**) memakai jsdom + **mock server Supabase** (Auth/PostgREST/RLS), termasuk alur lintas-perangkat user→manager dan build+uji `KartuSign-Verifier.html` |
+| `test.js` | Uji end-to-end otomatis (**149 kasus**) memakai jsdom + **mock server Supabase** (Auth/PostgREST/RLS), termasuk alur lintas-perangkat user→manager dan build+uji `IDCardManagement-Verifier.html` |
 | `qrtest.js` | Uji round-trip QR: payload → matriks → decode |
 | `make_sample.py` | Pembangkit `contoh-kartu.png` |
 
@@ -266,7 +267,7 @@ cd preview && python3 -m http.server 8080 --bind 0.0.0.0
 2. Setelah proyek jadi: menu **SQL Editor** → *New query* → tempel **seluruh isi `supabase/schema.sql`** → **Run**. Ini membuat tabel `profiles`, `signing_keys`, `requests` + trigger + kebijakan RLS.
 3. Menu **Authentication → Providers → Email** → matikan **Confirm email** → Save. (Pendaftaran lewat aplikasi tanpa verifikasi email.)
 4. Menu **Settings → API** → salin **Project URL** dan **anon public** key.
-5. Buka aplikasi KartuSign → panel **Hubungkan ke Supabase** → tempel URL + anon key → **Simpan & Uji Koneksi**.
+5. Buka aplikasi ID Card Management → panel **Hubungkan ke Supabase** → tempel URL + anon key → **Simpan & Uji Koneksi**.
 6. Klik **Buat akun baru** → akun pertama **otomatis menjadi manager (level 2)**. Masuk tab *Kunci & Akun* → buat kunci → tambahkan akun-akun user.
 
 > Keamanan: anon key memang untuk publik (dipakai browser); yang menjaga data adalah **RLS** di schema.sql. Jangan pernah menaruh *service_role key* di aplikasi.
@@ -283,7 +284,7 @@ Folder `deploy/` sudah siap unggah: `index.html` (aplikasi), `contoh-kartu.png`,
 **Checklist setelah deploy**
 1. Buka URL situs → isi koneksi Supabase (panel *Hubungkan ke Supabase*) → **buat akun pertama** (otomatis manager) → buat kunci → unduh cadangan kunci privat.
 2. Tambahkan akun user/manager lain di tab *Kunci & Akun* → bagikan URL situs ke mereka; masing-masing login dari perangkat sendiri dengan akun sendiri.
-3. Unduh **KartuSign-Verifier.html** (kunci publik tertanam) → ganti nama menjadi `verifier.html` → taruh di folder `deploy/` → deploy ulang.
+3. Unduh **IDCardManagement-Verifier.html** (kunci publik tertanam) → ganti nama menjadi `verifier.html` → taruh di folder `deploy/` → deploy ulang.
    Hasil: `https://situs-anda.netlify.app/verifier.html` = halaman cek keaslian publik untuk petugas di mana pun (tanpa login, tanpa Supabase, cukup tempel isi QR).
 
 **Model data (v2.0 — online penuh)**
@@ -294,6 +295,17 @@ Folder `deploy/` sudah siap unggah: `index.html` (aplikasi), `contoh-kartu.png`,
 - HTTPS bawaan Netlify membuat Web Crypto API aktif penuh (syarat secure context terpenuhi).
 
 ## Catatan rilis
+
+**v2.3 (revisi atas masukan pengguna — profil dengan Nama wajib + caption penanda tangan)**
+- **Pendaftaran profil wajib mengisi Nama lengkap** (minimal 2 karakter): di form *Buat akun baru* maupun saat manager menambah akun di tab *Kunci & Akun*. Nama disimpan di kolom baru `profiles.full_name` (server Supabase).
+- **Nama penanda tangan dicetak di bawah barcode**: saat user memuat kartu yang sudah disetujui, kolom *Teks di bawah QR* otomatis terisi **`Digitaly Signed - <Nama manager yang approve>`** (masih bisa diedit user sebelum mengunduh). Nama dilampirkan saat approval (`card_data._sname`); data lama tanpa nama jatuh ke username penanda tangan.
+- Setiap akun dapat **mengganti nama lengkapnya sendiri** lewat tombol *Ganti nama* (RPC `update_my_full_name` di server — hanya mengubah kolom nama, tidak bisa dipakai menaikkan role).
+- Nama lengkap tampil di **chip sesi** (atas kanan), **tabel akun**, dan antrean manager (`by_name` kini nama lengkap).
+- **Migrasi**: jalankan ulang seluruh `supabase/schema.sql` di SQL Editor — aman untuk data existing (`ADD COLUMN IF NOT EXISTS` + `CREATE OR REPLACE`); baris lama mendapat `full_name` kosong sampai diisi.
+- **Rebrand tampilan**: nama aplikasi menjadi **ID Card Management**; sub-judul header menjadi *"Purchasing - Raw Material Section | ID Card Vendor Representative Approval"*; file verifier yang diunduh kini bernama `IDCardManagement-Verifier.html`. Nama API internal (`window.KartuSign`), prefiks payload (`KS3`), dan kunci localStorage tidak berubah — data & integrasi lama tetap jalan.
+- **Tab & panel *Bantuan* dihapus** atas masukan pengguna; caption penjelasan di panel login dan di kartu unggah tanda tangan manager dibuang (umpan balik unggah diganti toast singkat).
+- **Tampilan dipercantik**: header bergradien dengan aksen cahaya, tab bergaya kaca, kartu/tombol/input/tabel lebih halus (radius & bayangan lembut), toast & scrollbar bergaya baru — tetap satu file mandiri tanpa font/aset eksternal.
+- Uji otomatis: 140 → **149 kasus** (nama wajib di kedua form pendaftaran, nama tersimpan & tampil, `_sname` di approval, caption otomatis di kartu user, ganti nama via RPC + validasi).
 
 **v2.2 (revisi atas masukan pengguna — manager hanya approve, user yang menempatkan QR)**
 - **Menu manager dirampingkan**: tugasnya **hanya memberikan approval** (atau menolak + catatan) dan **melihat pratinjau draft barcode**. Sekali approve, barcode langsung jadi dalam bentuk draft (QR tampil di panel + payload tersimpan di server). Kontrol tata letak kartu, tombol unduh/cetak kartu, dan tanda tangan ad-hoc di luar antrean **dihapus** dari panel manager; pratinjau kartu di panel manager kini kartu polos (tanpa QR).

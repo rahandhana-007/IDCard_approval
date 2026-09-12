@@ -3,7 +3,7 @@
 -- Jalankan SELURUH isi file ini di Supabase Dashboard → SQL Editor → Run.
 --
 -- Tabel:
---   profiles      : username + role (user/manager) + status aktif, terhubung ke auth.users
+--   profiles      : username + nama lengkap + role (user/manager) + status aktif, terhubung ke auth.users
 --   signing_keys  : kunci tanda tangan (privat disimpan TERENKRIPSI frasa sandi)
 --   requests      : antrean pengajuan kartu (user → manager) + hasil approval
 --
@@ -16,10 +16,14 @@
 create table if not exists public.profiles (
   id         uuid primary key references auth.users(id) on delete cascade,
   username   text unique not null,
+  full_name  text not null default '',      -- v2.3: nama lengkap (wajib saat pendaftaran)
   role       text not null default 'user' check (role in ('user','manager')),
   active     boolean not null default true,
   created_at timestamptz not null default now()
 );
+
+-- v2.3 (aman dijalankan ulang): tambahkan kolom nama lengkap bila skema lama
+alter table public.profiles add column if not exists full_name text not null default '';
 
 alter table public.profiles enable row level security;
 
@@ -27,8 +31,10 @@ alter table public.profiles enable row level security;
 create or replace function public.handle_new_user()
 returns trigger language plpgsql security definer set search_path = public as $$
 begin
-  insert into public.profiles (id, username)
-  values (new.id, coalesce(nullif(new.raw_user_meta_data->>'username',''), split_part(new.email, '@', 1)))
+  insert into public.profiles (id, username, full_name)
+  values (new.id,
+          coalesce(nullif(new.raw_user_meta_data->>'username',''), split_part(new.email, '@', 1)),
+          coalesce(nullif(new.raw_user_meta_data->>'full_name',''), ''))
   on conflict (id) do nothing;
   return new;
 end; $$;
@@ -73,6 +79,19 @@ create policy profiles_update_manager on public.profiles
 drop policy if exists profiles_delete_manager on public.profiles;
 create policy profiles_delete_manager on public.profiles
   for delete to authenticated using (public.is_manager());
+
+-- v2.3: tiap akun dapat mengubah NAMA LENGKAP-nya sendiri (hanya kolom full_name,
+-- lewat security definer — tidak bisa dipakai menaikkan role sendiri)
+create or replace function public.update_my_full_name(nama text)
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  if coalesce(length(trim(coalesce(nama,''))),0) < 2 then
+    raise exception 'Nama lengkap minimal 2 karakter';
+  end if;
+  update public.profiles set full_name = trim(nama) where id = auth.uid();
+end; $$;
+revoke all on function public.update_my_full_name(text) from public;
+grant execute on function public.update_my_full_name(text) to authenticated;
 
 -- ---------- signing_keys ----------
 create table if not exists public.signing_keys (

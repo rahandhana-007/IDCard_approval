@@ -3,52 +3,63 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>KartuSign — Tanda Tangan Digital (QR) untuk Kartu</title>
+<title>ID Card Management — Purchasing - Raw Material Section</title>
 <style>
 /*QRGEN_CSS*/
 :root{
-  --bg:#0b1220; --bg2:#111a2e; --panel:#ffffff; --ink:#0f172a; --muted:#64748b;
-  --line:#e2e8f0; --line2:#cbd5e1; --brand:#4f46e5; --brand2:#4338ca; --ok:#059669;
-  --okbg:#ecfdf5; --err:#dc2626; --errbg:#fef2f2; --warn:#b45309; --warnbg:#fffbeb;
-  --radius:14px; --shadow:0 1px 2px rgba(15,23,42,.06),0 8px 24px rgba(15,23,42,.08);
+  --bg:#0a1024; --bg2:#111a3a; --panel:#ffffff; --ink:#0f172a; --muted:#5b6880;
+  --line:#e7eaf3; --line2:#d5dce9; --brand:#4f46e5; --brand2:#4338ca; --brand3:#7c3aed;
+  --ok:#059669; --okbg:#ecfdf5; --err:#dc2626; --errbg:#fef2f2; --warn:#b45309; --warnbg:#fffbeb;
+  --radius:16px; --shadow:0 1px 2px rgba(15,23,42,.04),0 12px 32px rgba(15,23,42,.08);
 }
 *{box-sizing:border-box}
 html,body{margin:0;padding:0}
+::selection{background:#c7d2fe;color:#1e1b4b}
+:focus-visible{outline:2px solid #818cf8;outline-offset:2px}
+::-webkit-scrollbar{width:11px;height:11px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:#c9d3e4;border-radius:99px;border:3px solid transparent;background-clip:content-box}
+::-webkit-scrollbar-thumb:hover{background:#a9b6cd;border:3px solid transparent;background-clip:content-box}
 body{
   font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
-  background:linear-gradient(180deg,var(--bg) 0%,var(--bg2) 420px,#f1f5f9 420px,#f1f5f9 100%);
+  background:
+    radial-gradient(1100px 420px at 8% -140px, rgba(99,102,241,.5), transparent 62%),
+    radial-gradient(900px 380px at 92% -120px, rgba(34,211,238,.22), transparent 60%),
+    radial-gradient(700px 300px at 55% -90px, rgba(124,58,237,.3), transparent 65%),
+    linear-gradient(180deg,#0a1024 0px,#0d1430 240px,#111a3a 440px,#f2f4fa 441px,#f5f7fc 100%);
   background-attachment:fixed;color:var(--ink);font-size:15px;line-height:1.5;-webkit-font-smoothing:antialiased;
 }
 .wrap{max-width:1180px;margin:0 auto;padding:0 16px 64px}
-header.top{padding:26px 0 20px;color:#fff}
-.brand{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
-.logo{width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,#6366f1,#22d3ee);display:grid;place-items:center;flex:0 0 auto;box-shadow:0 6px 18px rgba(56,189,248,.35)}
-.logo svg{width:24px;height:24px}
-h1{font-size:20px;margin:0;letter-spacing:-.02em;font-weight:700}
-.sub{margin:2px 0 0;color:#c7d2fe;font-size:13px}
-.badge{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:4px 9px;border-radius:999px;background:rgba(255,255,255,.14);color:#e0e7ff;border:1px solid rgba(255,255,255,.2)}
-nav.tabs{display:flex;gap:6px;margin:16px 0 18px;flex-wrap:wrap}
+header.top{padding:32px 0 22px;color:#fff}
+.brand{display:flex;align-items:center;gap:13px;flex-wrap:wrap}
+.logo{width:44px;height:44px;border-radius:14px;background:linear-gradient(135deg,#6366f1,#22d3ee);display:grid;place-items:center;flex:0 0 auto;box-shadow:0 8px 22px rgba(56,189,248,.4),inset 0 1px 0 rgba(255,255,255,.35)}
+.logo svg{width:25px;height:25px}
+h1{font-size:21px;margin:0;letter-spacing:-.02em;font-weight:800;text-shadow:0 2px 12px rgba(2,6,23,.35)}
+.sub{margin:3px 0 0;color:#b7c2f7;font-size:13px;letter-spacing:.01em}
+.badge{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:4px 10px;border-radius:999px;background:rgba(255,255,255,.14);color:#e0e7ff;border:1px solid rgba(255,255,255,.22);backdrop-filter:blur(6px)}
+nav.tabs{display:flex;gap:7px;margin:18px 0 20px;flex-wrap:wrap}
 nav.tabs button{
-  appearance:none;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.08);color:#e2e8f0;
-  padding:9px 15px;border-radius:999px;font-size:13.5px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:7px;
-  transition:.15s;
+  appearance:none;border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.08);color:#e2e8f0;
+  padding:9px 16px;border-radius:999px;font-size:13.5px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:7px;
+  transition:.18s;backdrop-filter:blur(8px);
 }
-nav.tabs button:hover{background:rgba(255,255,255,.16)}
-nav.tabs button[aria-selected="true"]{background:#fff;color:var(--brand2);border-color:#fff;box-shadow:0 6px 16px rgba(0,0,0,.22)}
+nav.tabs button:hover{background:rgba(255,255,255,.16);transform:translateY(-1px)}
+nav.tabs button[aria-selected="true"]{background:linear-gradient(180deg,#ffffff,#f1f2ff);color:#3730a3;border-color:#fff;box-shadow:0 8px 22px rgba(2,6,23,.35)}
 nav.tabs svg{width:15px;height:15px}
 .grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px;align-items:start}
 @media(max-width:940px){.grid{grid-template-columns:minmax(0,1fr)}}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden}
-.card>h2{margin:0;padding:14px 18px;font-size:14px;font-weight:700;letter-spacing:.01em;border-bottom:1px solid var(--line);background:#fafbfc;display:flex;align-items:center;gap:9px}
-.card>h2 .n{width:22px;height:22px;border-radius:7px;background:var(--brand);color:#fff;font-size:12px;display:grid;place-items:center;flex:0 0 auto}
-.card .body{padding:16px 18px}
+.card>h2{margin:0;padding:15px 18px;font-size:14px;font-weight:700;letter-spacing:.01em;border-bottom:1px solid #edf0f7;background:linear-gradient(180deg,#fcfdff,#f5f7fd);display:flex;align-items:center;gap:9px}
+.card>h2 .n{width:22px;height:22px;border-radius:8px;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:#fff;font-size:12px;display:grid;place-items:center;flex:0 0 auto;box-shadow:0 4px 10px rgba(79,70,229,.35)}
+.card .body{padding:18px}
 .card .body+.body{border-top:1px dashed var(--line)}
 label.f{display:block;font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin:0 0 6px}
 input[type=text],input[type=password],input[type=number],input[type=date],select,textarea{
-  width:100%;padding:10px 12px;border:1px solid var(--line2);border-radius:10px;font:inherit;font-size:14px;color:var(--ink);background:#fff;
-  transition:.15s;
+  width:100%;padding:10px 12px;border:1px solid var(--line2);border-radius:12px;font:inherit;font-size:14px;color:var(--ink);background:#fff;
+  transition:.15s;box-shadow:inset 0 1px 2px rgba(15,23,42,.04);
 }
-input:focus,select:focus,textarea:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 3px rgba(79,70,229,.14)}
+input:hover,select:hover,textarea:hover{border-color:#b9c4d8}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 3px rgba(79,70,229,.15)}
 textarea{resize:vertical;min-height:96px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px}
 .row{display:grid;gap:12px}
 .row.c2{grid-template-columns:1fr 1fr}
@@ -58,69 +69,73 @@ textarea{resize:vertical;min-height:96px;font-family:ui-monospace,SFMono-Regular
 .field:last-child{margin-bottom:0}
 .hint{font-size:12px;color:var(--muted);margin:6px 0 0}
 .btn{
-  appearance:none;border:1px solid var(--line2);background:#fff;color:var(--ink);padding:10px 14px;border-radius:10px;
+  appearance:none;border:1px solid var(--line2);background:#fff;color:var(--ink);padding:10px 14px;border-radius:12px;
   font:inherit;font-size:13.5px;font-weight:650;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;transition:.15s;
+  box-shadow:0 1px 2px rgba(15,23,42,.05);
 }
-.btn:hover{background:#f8fafc;border-color:#94a3b8}
-.btn:active{transform:translateY(1px)}
-.btn:disabled{opacity:.45;cursor:not-allowed;transform:none}
+.btn:hover{background:#f8fafc;border-color:#94a3b8;transform:translateY(-1px);box-shadow:0 4px 12px rgba(15,23,42,.1)}
+.btn:active{transform:translateY(0);box-shadow:0 1px 2px rgba(15,23,42,.05)}
+.btn:disabled{opacity:.45;cursor:not-allowed;transform:none;box-shadow:none}
 .btn svg{width:16px;height:16px;flex:0 0 auto}
-.btn.primary{background:var(--brand);border-color:var(--brand);color:#fff;box-shadow:0 6px 16px rgba(79,70,229,.28)}
-.btn.primary:hover{background:var(--brand2);border-color:var(--brand2)}
-.btn.ok{background:var(--ok);border-color:var(--ok);color:#fff}
-.btn.ok:hover{filter:brightness(.95)}
-.btn.ghost{background:transparent;border-color:transparent;color:var(--brand2)}
-.btn.ghost:hover{background:#eef2ff}
+.btn.primary{background:linear-gradient(135deg,#4f46e5 0%,#6d28d9 100%);border-color:#4f46e5;color:#fff;box-shadow:0 8px 20px rgba(79,70,229,.35)}
+.btn.primary:hover{filter:brightness(1.08);border-color:#4338ca;box-shadow:0 10px 24px rgba(79,70,229,.42)}
+.btn.ok{background:linear-gradient(135deg,#059669,#047857);border-color:#059669;color:#fff;box-shadow:0 8px 20px rgba(5,150,105,.3)}
+.btn.ok:hover{filter:brightness(1.06)}
+.btn.ghost{background:transparent;border-color:transparent;color:var(--brand2);box-shadow:none}
+.btn.ghost:hover{background:#eef2ff;box-shadow:none}
 .btn.danger{color:var(--err);border-color:#fecaca}
 .btn.danger:hover{background:var(--errbg)}
-.btn.sm{padding:7px 11px;font-size:12.5px;border-radius:9px}
+.btn.sm{padding:7px 11px;font-size:12.5px;border-radius:10px}
 .btn.wide{width:100%}
 .btnrow{display:flex;gap:9px;flex-wrap:wrap}
 .drop{
-  border:2px dashed var(--line2);border-radius:12px;padding:22px;text-align:center;cursor:pointer;background:#fbfcfe;transition:.15s;
+  border:2px dashed #c3cde2;border-radius:14px;padding:22px;text-align:center;cursor:pointer;background:linear-gradient(180deg,#fbfcff,#f6f8ff);transition:.18s;
 }
-.drop:hover,.drop.over{border-color:var(--brand);background:#eef2ff}
+.drop:hover,.drop.over{border-color:var(--brand);background:#eef2ff;box-shadow:0 6px 18px rgba(79,70,229,.12)}
 .drop svg{width:30px;height:30px;color:#94a3b8;margin-bottom:6px}
 .drop b{display:block;font-size:14px}
 .drop span{font-size:12.5px;color:var(--muted)}
 .preview{position:relative;background:
-  repeating-conic-gradient(#e9edf3 0% 25%, #fff 0% 50%) 50%/18px 18px;
-  border:1px solid var(--line);border-radius:12px;padding:12px;display:grid;place-items:center;min-height:190px;overflow:hidden}
-#cardPreview{max-width:100%;height:auto;display:block;border-radius:8px;box-shadow:0 6px 22px rgba(15,23,42,.18);touch-action:none;cursor:grab}
-#cardPreview.dragging{cursor:grabbing}
+  repeating-conic-gradient(#ecf0f7 0% 25%, #fff 0% 50%) 50%/18px 18px;
+  border:1px solid var(--line);border-radius:14px;padding:12px;display:grid;place-items:center;min-height:190px;overflow:hidden}
+#cardPreview,#approvedCanvas{max-width:100%;height:auto;display:block;border-radius:10px;box-shadow:0 10px 30px rgba(15,23,42,.22);touch-action:none;cursor:grab}
+#cardPreview.dragging,#approvedCanvas.dragging{cursor:grabbing}
+#cardPreviewUser{max-width:100%;height:auto;display:block;border-radius:10px;box-shadow:0 8px 24px rgba(15,23,42,.16)}
+#qrDraft{border-radius:12px;border:1px solid var(--line);background:#fff;box-shadow:0 8px 24px rgba(15,23,42,.14)}
 .empty{color:var(--muted);font-size:13.5px;text-align:center;padding:26px 10px}
 input[type=range]{width:100%;accent-color:var(--brand)}
 .kv{display:grid;grid-template-columns:auto 1fr;gap:5px 12px;font-size:12.5px}
 .kv dt{color:var(--muted);font-weight:650;white-space:nowrap}
 .kv dd{margin:0;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;word-break:break-all}
 .mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
-.chip{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:700;padding:3px 9px;border-radius:999px;background:#eef2ff;color:var(--brand2);border:1px solid #e0e7ff}
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:700;padding:3px 10px;border-radius:999px;background:#eef2ff;color:var(--brand2);border:1px solid #e0e7ff}
 .chip.gray{background:#f1f5f9;color:#475569;border-color:#e2e8f0}
 .chip.green{background:var(--okbg);color:var(--ok);border-color:#a7f3d0}
 .chip.red{background:var(--errbg);color:var(--err);border-color:#fecaca}
 .chip.amber{background:var(--warnbg);color:var(--warn);border-color:#fde68a}
-.result{border-radius:12px;padding:14px;border:1px solid var(--line);background:#fafbfc}
+.result{border-radius:14px;padding:15px;border:1px solid var(--line);background:linear-gradient(180deg,#fcfdff,#f7f9fd)}
 .result.ok{background:var(--okbg);border-color:#a7f3d0}
 .result.err{background:var(--errbg);border-color:#fecaca}
 .result h3{margin:0 0 8px;font-size:15px;display:flex;align-items:center;gap:9px}
 .result.ok h3{color:var(--ok)} .result.err h3{color:var(--err)}
-.note{font-size:12.5px;color:var(--muted);background:#f8fafc;border:1px solid var(--line);border-left:3px solid var(--brand);border-radius:0 10px 10px 0;padding:10px 12px;margin:0}
+.note{font-size:12.5px;color:var(--muted);background:#f8fafc;border:1px solid var(--line);border-left:3px solid var(--brand);border-radius:0 12px 12px 0;padding:10px 12px;margin:0}
 .note.warn{border-left-color:#f59e0b;background:var(--warnbg);color:#78350f}
 .note.ok{border-left-color:var(--ok);background:var(--okbg);color:#064e3b}
 table{width:100%;border-collapse:collapse;font-size:13px}
 th,td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top}
-th{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);background:#fafbfc;position:sticky;top:0}
-tbody tr:hover{background:#f8fafc}
-.tablewrap{max-height:380px;overflow:auto;border:1px solid var(--line);border-radius:12px}
-details{border:1px solid var(--line);border-radius:10px;background:#fafbfc;padding:0}
+th{font-size:11px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);background:#f8fafd;position:sticky;top:0}
+tbody tr:nth-child(even){background:#fbfcfe}
+tbody tr:hover{background:#f3f6ff}
+.tablewrap{max-height:380px;overflow:auto;border:1px solid var(--line);border-radius:14px}
+details{border:1px solid var(--line);border-radius:12px;background:#f9fafd;padding:0}
 details summary{cursor:pointer;padding:10px 13px;font-size:13px;font-weight:650;color:#334155;list-style:none;display:flex;align-items:center;gap:8px}
 details summary::-webkit-details-marker{display:none}
 details summary::before{content:"›";display:inline-block;transition:.15s;color:var(--muted);font-size:16px;line-height:1}
 details[open] summary::before{transform:rotate(90deg)}
 details .inner{padding:0 13px 13px}
-.toast{position:fixed;left:50%;bottom:26px;transform:translate(-50%,20px);background:#0f172a;color:#fff;padding:11px 18px;border-radius:999px;font-size:13.5px;font-weight:600;opacity:0;pointer-events:none;transition:.25s;z-index:99;box-shadow:0 12px 30px rgba(0,0,0,.3);max-width:90vw;text-align:center}
+.toast{position:fixed;left:50%;bottom:26px;transform:translate(-50%,20px);background:rgba(13,20,44,.97);color:#fff;padding:11px 20px;border-radius:999px;font-size:13.5px;font-weight:600;opacity:0;pointer-events:none;transition:.25s;z-index:99;box-shadow:0 14px 34px rgba(2,6,23,.4);border:1px solid rgba(255,255,255,.09);backdrop-filter:blur(8px);max-width:90vw;text-align:center}
 .toast.show{opacity:1;transform:translate(-50%,0)}
-.toast.err{background:#7f1d1d}
+.toast.err{background:#7f1d1d;border-color:rgba(255,255,255,.12)}
 .hide{display:none !important}
 footer{color:var(--muted);font-size:12.5px;text-align:center;margin-top:34px}
 .pill{display:inline-block;padding:2px 8px;border-radius:6px;background:#f1f5f9;font-size:11.5px;font-weight:700;color:#475569}
@@ -142,12 +157,13 @@ canvas.qrthumb{image-rendering:pixelated;border:1px solid var(--line);border-rad
       </svg>
     </div>
     <div class="grow">
-      <h1>KartuSign <span class="badge">Digital Signature · QR</span></h1>
-      <p class="sub">Upload gambar kartu → beri tanda tangan digital berupa QR code → unduh / cetak kartu yang sudah disahkan.</p>
+      <h1>ID Card Management <span class="badge">Digital Signature · QR</span></h1>
+      <p class="sub">Purchasing - Raw Material Section | ID Card Vendor Representative Approval</p>
     </div>
     <span class="chip gray" id="chipCrypto" title="Dukungan kriptografi browser">memeriksa…</span>
     <span class="chip gray hide" id="chipSession" title="Sesi aktif"></span>
     <button class="btn sm hide noprint" id="btnChangePass" title="Ganti password akun ini">Ganti password</button>
+    <button class="btn sm hide noprint" id="btnChangeName" title="Ubah nama lengkap Anda">Ganti nama</button>
     <button class="btn sm danger hide noprint" id="btnLogout" title="Keluar dari sesi">Keluar</button>
   </div>
 
@@ -172,10 +188,6 @@ canvas.qrthumb{image-rendering:pixelated;border:1px solid var(--line);border-rad
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l4 2"/></svg>
       Riwayat Approval
     </button>
-    <button role="tab" data-tab="help" data-role="user,manager,verifier" aria-selected="false">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
-      Bantuan
-    </button>
   </nav>
 
 </header>
@@ -189,7 +201,7 @@ canvas.qrthumb{image-rendering:pixelated;border:1px solid var(--line);border-rad
         Hubungkan ke Supabase
       </h2>
       <div class="body">
-        <p class="note">KartuSign memakai <b>database online (Supabase)</b>: akun, kunci tanda tangan, antrean pengajuan, dan riwayat tersinkron antar perangkat — user bisa mengajukan dari mana pun, manager menyetujui dari perangkat lain.</p>
+        <p class="note">ID Card Management memakai <b>database online (Supabase)</b>: akun, kunci tanda tangan, antrean pengajuan, dan riwayat tersinkron antar perangkat — user bisa mengajukan dari mana pun, manager menyetujui dari perangkat lain.</p>
         <div class="field">
           <label class="f" for="sbUrl">Supabase URL proyek</label>
           <input type="text" id="sbUrl" autocomplete="off" placeholder="https://xxxxxxxx.supabase.co">
@@ -217,7 +229,7 @@ canvas.qrthumb{image-rendering:pixelated;border:1px solid var(--line);border-rad
     <div class="card">
       <h2>
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-        Masuk ke KartuSign
+        Masuk ke ID Card Management
       </h2>
       <div class="body">
         <div id="loginBox">
@@ -236,10 +248,14 @@ canvas.qrthumb{image-rendering:pixelated;border:1px solid var(--line);border-rad
           </button>
           <div class="sep"></div>
           <button class="btn wide" id="btnToSignup">Belum punya akun? Buat akun baru</button>
-          <p class="note" style="margin-top:10px">Login diverifikasi oleh server <b>Supabase</b> (bukan hanya di browser). Data akun, antrean pengajuan, kunci, dan riwayat <b>tersinkron antar perangkat</b>: user dapat mengajukan dari perangkat apa pun, manager menyetujui dari perangkat lain.</p>
           <p style="margin-top:10px"><button class="btn sm" id="btnSbEdit">Ubah koneksi server</button></p>
         </div>
         <div id="signupBox" class="hide">
+          <div class="field">
+            <label class="f" for="suName">Nama lengkap <b style="color:var(--err)">*</b></label>
+            <input type="text" id="suName" autocomplete="name" placeholder="contoh: Budi Santoso">
+            <p class="hint" style="margin:4px 0 0">Wajib diisi. Nama penyetuju (manager) dicetak di bawah barcode kartu: <b>&ldquo;Digitaly Signed - Nama&rdquo;</b>.</p>
+          </div>
           <div class="field">
             <label class="f" for="suUser">Username</label>
             <input type="text" id="suUser" autocomplete="username" placeholder="3–30 karakter: huruf kecil, angka, . _ -">
@@ -437,8 +453,6 @@ canvas.qrthumb{image-rendering:pixelated;border:1px solid var(--line);border-rad
             <span>Klik atau tarik file ke sini — dilampirkan saat approve.</span>
           </div>
           <input type="file" id="fileSig" accept="image/*" class="hide">
-          <p class="hint" id="sigFileInfo">Belum ada tanda tangan.</p>
-          <p class="hint">Tanda tangan <b>tidak dicetak pada kartu</b>. Hash-nya diikat ke payload QR (<span class="mono">sh</span>) dan versi ringkasnya disematkan di dalam QR (<span class="mono">ss</span>) sehingga <b>muncul di kolom hasil saat verifikasi keaslian</b>. Unggah sekali — dipakai untuk semua approval.</p>
         </div>
       </div>
     </div>
@@ -622,7 +636,7 @@ canvas.qrthumb{image-rendering:pixelated;border:1px solid var(--line);border-rad
         <h2><span class="n">2</span> Impor kunci</h2>
         <div class="body">
           <div class="field">
-            <label class="f" for="kImport">Tempel kunci privat (PEM PKCS#8 / JWK / blob terenkripsi KartuSign)</label>
+            <label class="f" for="kImport">Tempel kunci privat (PEM PKCS#8 / JWK / blob terenkripsi ID Card Management)</label>
             <textarea id="kImport" placeholder="-----BEGIN PRIVATE KEY-----&#10;MIGH...&#10;-----END PRIVATE KEY-----"></textarea>
           </div>
           <div class="field">
@@ -653,7 +667,7 @@ canvas.qrthumb{image-rendering:pixelated;border:1px solid var(--line);border-rad
             <button class="btn sm" id="btnCopyPriv">Salin ke clipboard</button>
           </div>
           <p class="hint">Simpan cadangan ini di tempat aman. Kehilangan kunci privat = tidak bisa menerbitkan tanda tangan baru; kebocoran kunci privat = orang lain bisa memalsukan approval.</p>
-          <p class="hint"><b>KartuSign-Verifier.html</b> = salinan aplikasi ini dengan kunci publik Anda tertanam di dalamnya. Bagikan file itu ke petugas: mereka cukup menempel isi QR untuk mendapat putusan ASLI / TIDAK ASLI, tanpa kunci dan tanpa gambar.</p>
+          <p class="hint"><b>IDCardManagement-Verifier.html</b> = salinan aplikasi ini dengan kunci publik Anda tertanam di dalamnya. Bagikan file itu ke petugas: mereka cukup menempel isi QR untuk mendapat putusan ASLI / TIDAK ASLI, tanpa kunci dan tanpa gambar.</p>
         </div>
       </div>
 
@@ -661,9 +675,10 @@ canvas.qrthumb{image-rendering:pixelated;border:1px solid var(--line);border-rad
         <h2><span class="n">4</span> Akun pengguna (Supabase Auth)</h2>
         <div class="body">
           <div class="tablewrap" style="max-height:220px;margin-bottom:12px">
-            <table><thead><tr><th>Username</th><th>Level</th><th>Status</th><th>Dibuat</th><th>Aksi</th></tr></thead><tbody id="accBody"></tbody></table>
+            <table><thead><tr><th>Username</th><th>Nama lengkap</th><th>Level</th><th>Status</th><th>Dibuat</th><th>Aksi</th></tr></thead><tbody id="accBody"></tbody></table>
           </div>
           <div class="row c3">
+            <div class="field"><label class="f" for="accName">Nama lengkap</label><input type="text" id="accName" autocomplete="off" placeholder="wajib — tercetak di bawah barcode"></div>
             <div class="field"><label class="f" for="accUser">Username baru</label><input type="text" id="accUser" autocomplete="off" placeholder="huruf kecil/angka"></div>
             <div class="field"><label class="f" for="accRole">Level</label><select id="accRole"><option value="user">1 — user (input data)</option><option value="manager">2 — manager (tanda tangan)</option></select></div>
             <div class="field"><label class="f" for="accPass">Password</label><input type="password" id="accPass" autocomplete="new-password" placeholder="min. 6 karakter"></div>
@@ -712,59 +727,9 @@ canvas.qrthumb{image-rendering:pixelated;border:1px solid var(--line);border-rad
 </section>
 
 <!-- ============ TAB: HELP ============ -->
-<section data-panel="help" class="hide">
-  <div class="grid">
-    <div class="card">
-      <h2>Cara kerja</h2>
-      <div class="body">
-        <ol style="margin:0;padding-left:20px;font-size:14px;line-height:1.75">
-          <li><b>Hubungkan Supabase</b> sekali saja (URL + anon key, lihat panel pengaturan server), lalu <b>buat akun / masuk</b>. Akun pertama otomatis menjadi <b>manager (level 2)</b>; manager menambah akun <b>user (level 1)</b> di tab <i>Kunci &amp; Akun</i>. Login &amp; data tersinkron antar perangkat.</li>
-          <li><b>(user, dari perangkat mana pun)</b> Upload gambar kartu, isi nama/ID/masa berlaku, lalu <b>Ajukan Approval</b> — pengajuan tersimpan di server dan langsung masuk antrean manager.</li>
-          <li><b>(manager)</b> Buat kunci sekali saja di tab <i>Kunci &amp; Akun</i> — kunci privat disimpan <b>terenkripsi frasa sandi</b> di server, sehingga manager dapat menandatangani dari perangkat mana pun.</li>
-          <li><b>(manager)</b> Unggah <b>tanda tangan PNG</b> sekali di tab <i>Approval</i> (dilampirkan ke setiap approve; tidak dicetak di kartu), lalu pilih permintaan → <b>Proses</b> → <b>Approve &amp; Buat Barcode</b>. Aplikasi menghitung <b>SHA-256(metadata + byte gambar)</b>, menandatanganinya dengan kunci privat, dan menampilkan <b>draft QR</b>. Menu manager hanya itu: approve/tolak + preview draft barcode.</li>
-          <li><b>(user)</b> Setelah status <i>disetujui</i>, klik <b>Unduh Kartu</b> di tabel <i>pengajuan saya</i>: user <b>menempatkan draft QR pada kartu</b> (posisi, ukuran, rotasi, caption — bisa digeser langsung di pratinjau), lalu mengunduh PNG/JPG/QR atau mencetak.</li>
-          <li>Petugas memeriksa keaslian di tab <i>Verifikasi</i>: <b>cukup tempel isi QR</b> → hasil <b>KARTU INI ASLI</b> atau <b>TIDAK ASLI</b> — dan <b>tanda tangan PNG manager tampil di kolom hasil pemeriksaan</b> (dari server bila login, atau dari versi ringkas yang tertanam di QR bila offline).</li>
-          <li>Agar verifikasi bekerja di perangkat petugas, unduh <b>KartuSign-Verifier.html</b> dari tab <i>Kunci &amp; Keamanan</i> (kunci publik Anda tertanam di dalamnya) dan bagikan file itu.</li>
-        </ol>
-        <div class="sep"></div>
-        <p class="note">Contoh format payload QR:<br>
-        <span class="mono" style="font-size:11.5px;word-break:break-all">{"v":3,"alg":"ES256","kid":"a1b2c3d4e5f6","ts":1767225600,"cid":"KTR-2026-000123","hld":"Budi Santoso","apr":"Kepala Divisi SDM","exp":"2027-09-09","rsn":"Sah","h":"&lt;sha256 gambar kartu&gt;","sh":"&lt;sha256 file tanda tangan, opsional&gt;","ss":"&lt;tanda tangan ringkas 96×40 terkompresi, opsional&gt;","s":"&lt;tanda tangan, base64url&gt;"}</span></p>
-      </div>
-    </div>
-    <div class="card">
-      <h2>Tanya jawab singkat</h2>
-      <div class="body">
-        <details open style="margin-bottom:9px"><summary>Kenapa ECDSA disarankan, bukan RSA?</summary>
-          <div class="inner"><p style="font-size:13.5px;margin:0">Keduanya asimetris dan sama-sama aman untuk SHA-256. Bedanya di <b>panjang tanda tangan</b>: ECDSA P-256 = 64 byte (±86 karakter di QR), RSA-2048 = 256 byte (±343 karakter). Semakin panjang payload, semakin padat modul QR dan semakin sulit dipindai dari kartu berukuran kecil. RSA tetap tersedia bila kebijakan Anda mewajibkannya.</p></div>
-        </details>
-        <details style="margin-bottom:9px"><summary>Apakah QR bisa dipindai aplikasi apa pun?</summary>
-          <div class="inner"><p style="font-size:13.5px;margin:0">Bisa — isinya teks JSON biasa, jadi pemindai QR apa pun akan menampilkannya. Putusan ASLI/TIDAK ASLI tetap dihitung secara kriptografis di aplikasi ini, bukan dari tampilan teks.</p></div>
-        </details>
-        <details style="margin-bottom:9px"><summary>Bagaimana tanda tangan PNG manager dipakai?</summary>
-          <div class="inner"><p style="font-size:13.5px;margin:0">Tanda tangan manager diunggah sekali (PNG/JPG) dan <b>dilampirkan setiap approve</b> — <b>tidak dicetak pada kartu</b>. Dua jalur pengikatan: (1) <b>hash SHA-256 file-nya diikat ke payload</b> (field <span class="mono">sh</span>) — file tanda tangan diganti → verifikasi gagal; (2) versi <b>monokrom 96×40 terkompresi disematkan di dalam QR</b> (field <span class="mono">ss</span>) sehingga saat <b>verifikasi keaslian, gambar tanda tangan tampil di kolom hasil</b> — bahkan offline lewat file verifier. Saat verifier login &amp; pengajuan ditemukan di server, <b>PNG asli</b> (dari lampiran approval) yang ditampilkan.</p></div>
-        </details>
-        <details style="margin-bottom:9px"><summary>Kenapa verifikasi tidak butuh gambar kartu lagi?</summary>
-          <div class="inner"><p style="font-size:13.5px;margin:0">Sejak skema v2, hash SHA-256 gambar (<span class="mono">h</span>) ikut <b>di dalam</b> string yang ditandatangani. Jadi tanda tangan sudah mengikat gambar: memverifikasi tanda tangan dari payload saja cukup untuk menjamin seluruh data (termasuk identitas gambar) asli &amp; tidak diubah. Pencocokan hash dengan file gambar tetap tersedia sebagai opsional lanjutan.</p></div>
-        </details>
-        <details style="margin-bottom:9px"><summary>Di perangkat apa verifikasi bisa dilakukan?</summary>
-          <div class="inner"><p style="font-size:13.5px;margin:0">Tiga sumber kunci dipercaya otomatis: (1) kunci tertanam di file <span class="mono">KartuSign-Verifier.html</span>, (2) kunci penandatangan di perangkat yang sama, (3) riwayat approval perangkat itu. Di luar itu, tempel kunci publik lewat opsi lanjutan. QR yang kid-nya tidak dikenal akan dilaporkan <b>ISSUER TIDAK DIKENAL</b>, bukan asal dinyatakan asli.</p></div>
-        </details>
-        <details style="margin-bottom:9px"><summary>Apakah data saya dikirim ke internet?</summary>
-          <div class="inner"><p style="font-size:13.5px;margin:0">Ya, ke proyek Supabase Anda sendiri: akun (via Supabase Auth), antrean pengajuan (gambar + data kartu), hasil approval, dan blob kunci privat <b>yang sudah terenkripsi frasa sandi</b>. Proses kriptografi tetap berjalan di browser. Lindani anon key Anda dengan RLS (sudah termasuk di schema.sql) dan jaga kerahasiaan service key Supabase.</p></div>
-        </details>
-        <details style="margin-bottom:9px"><summary>Berapa ukuran cetak QR yang aman?</summary>
-          <div class="inner"><p style="font-size:13.5px;margin:0">Aturan praktis: modul (kotak terkecil) QR sebaiknya <b>≥ 0,33 mm</b> saat dicetak. Contoh dengan ECDSA + koreksi galat M (QR versi ±13, 69 modul): 69 × 0,33 mm ≈ <b>23 mm</b>. Pada kartu ID-1 (85,6 × 54 mm) itu sekitar 27% sisi pendek — jadi atur <b>Ukuran 22–30%</b>. Bila ruang kartu sempit, pilih koreksi galat <b>L</b> atau aktifkan <b>Key ID ringkas</b> agar QR lebih jarang.</p></div>
-        </details>
-        <details><summary>Bisa dipakai banyak penerbit / banyak kartu sekaligus?</summary>
-          <div class="inner"><p style="font-size:13.5px;margin:0">Untuk batch, gunakan versi backend (Node/Python) dengan kunci di HSM. Versi satu-file ini dirancang untuk penerbitan satuan oleh petugas berwenang.</p></div>
-        </details>
-      </div>
-    </div>
-  </div>
-</section>
 
 <footer class="noprint">
-  KartuSign · satu file HTML + backend Supabase (Auth, Postgres, RLS) · Tanda tangan digital ECDSA P-256 / RSA-2048 · Web Crypto API
+  ID Card Management · satu file HTML + backend Supabase (Auth, Postgres, RLS) · Tanda tangan digital ECDSA P-256 / RSA-2048 · Web Crypto API
 </footer>
 </div>
 
@@ -774,7 +739,7 @@ canvas.qrthumb{image-rendering:pixelated;border:1px solid var(--line);border-rad
 <script>
 "use strict";
 /* =====================================================================
-   KartuSign — tanda tangan digital (QR) untuk kartu
+   ID Card Management (KartuSign) — tanda tangan digital (QR) untuk kartu
    Kriptografi 100% di browser (Web Crypto + Canvas + qrcode-generator embedded);
    data & akun tersinkron lewat backend Supabase (Auth + Postgres + RLS)
    ===================================================================== */
@@ -858,7 +823,7 @@ function derToPem(der, label){
 function isPem(s){ return /-----BEGIN [A-Z ]*KEY-----/.test(s); }
 
 /* ---------------- daftar kunci terpercaya (trust store) ----------------
-   Pada build biasa isi array ini kosong. Aplikasi "KartuSign-Verifier.html"
+   Pada build biasa isi array ini kosong. Aplikasi "IDCardManagement-Verifier.html"
    (diunduh dari tab Kunci) memuat kunci publik penerbit di sini, sehingga
    petugas cukup menempel isi QR untuk memeriksa keaslian. --------------- */
 const TRUST_STORE = [/*TRUST_STORE_SLOT*/];
@@ -986,8 +951,8 @@ const SB = (() => {
       if (!ok) throw new Error("Koneksi gagal (HTTP " + status + ").");
     },
     clearConfig(){ cfg = null; ses = null; try { localStorage.removeItem(CFG_KEY); localStorage.removeItem(SES_KEY); } catch(e){} },
-    async signup(username, pass, keepSession){
-      const j = await authReq("POST", "signup", { email: emailOf(username), password: pass, data: { username: String(username).trim().toLowerCase() } }, false);
+    async signup(username, pass, keepSession, fullName){
+      const j = await authReq("POST", "signup", { email: emailOf(username), password: pass, data: { username: String(username).trim().toLowerCase(), full_name: String(fullName || "").trim() } }, false);
       if (!j || !j.access_token) throw new Error("Pendaftaran tidak menghasilkan sesi — matikan 'Confirm email' di Supabase (Authentication → Providers → Email).");
       if (!keepSession) setSession(j);
       return j;
@@ -1003,6 +968,7 @@ const SB = (() => {
     async listProfiles(){ return (await rest("profiles?select=*&order=created_at.asc")) || []; },
     async countManagers(){ const rows = await rest("profiles?role=eq.manager&active=eq.true&select=id"); return (rows || []).length; },
     async updateProfile(id, patch){ return rest("profiles?id=eq." + id + "&select=*", { method: "PATCH", body: patch, prefer: "return=representation" }); },
+    async updateMyName(nama){ return rest("rpc/update_my_full_name", { method: "POST", body: { nama: String(nama || "").trim() } }); },
     /* ---- signing keys ---- */
     async listKeys(){ return (await rest("signing_keys?select=*&order=key_id.asc")) || []; },
     async saveKey(rec){ return rest("signing_keys", { method: "POST", body: rec, prefer: "resolution=merge-duplicates,return=representation" }); },
@@ -1066,31 +1032,36 @@ async function sbProfileOrThrow(){
   if (prof.active === false) throw new Error("Akun ini dinonaktifkan oleh manager.");
   return prof;
 }
-async function sbAddAccount(u, role, pass){
+async function sbAddAccount(u, role, pass, fullName){
   u = String(u || "").trim().toLowerCase();
+  fullName = String(fullName || "").trim();
+  if (fullName.length < 2) throw new Error("Nama lengkap wajib diisi (minimal 2 karakter).");
   if (!VALID_USER.test(u)) throw new Error("Username 3–30 karakter: huruf kecil, angka, titik, strip, underscore.");
   if (!pass || pass.length < 6) throw new Error("Password minimal 6 karakter.");
   const rows = await SB.listProfiles();
   if (rows.some(r => r.username === u)) throw new Error("Username sudah dipakai.");
-  const j = await SB.signup(u, pass, true); // jangan mengganti sesi manager
+  const j = await SB.signup(u, pass, true, fullName); // jangan mengganti sesi manager
   const newId = j && j.user ? j.user.id : null;
   if (!newId) throw new Error("Akun dibuat tetapi server tidak mengembalikan id user.");
-  if (role === "manager") await SB.updateProfile(newId, { role: "manager" });
+  const patch = { full_name: fullName };           // pastikan nama tersimpan walau trigger lama
+  if (role === "manager") patch.role = "manager";
+  await SB.updateProfile(newId, patch);
 }
 async function renderAccounts(){
   const tb = $("accBody"); if (!tb) return;
-  if (!S.session || S.session.role !== "manager"){ tb.innerHTML = '<tr><td colspan="5" class="empty">Hanya manager yang dapat mengelola akun.</td></tr>'; return; }
+  if (!S.session || S.session.role !== "manager"){ tb.innerHTML = '<tr><td colspan="6" class="empty">Hanya manager yang dapat mengelola akun.</td></tr>'; return; }
   let rows;
   try { rows = await SB.listProfiles(); }
-  catch(e){ tb.innerHTML = '<tr><td colspan="5" class="empty">' + esc(e.message || "Gagal memuat akun") + '</td></tr>'; return; }
+  catch(e){ tb.innerHTML = '<tr><td colspan="6" class="empty">' + esc(e.message || "Gagal memuat akun") + '</td></tr>'; return; }
   const managers = rows.filter(r => r.role === "manager" && r.active !== false);
   tb.innerHTML = rows.map(a => `<tr>
     <td class="mono">${esc(a.username)}${a.id === S.session.userId ? ' <span class="chip gray">Anda</span>' : ""}</td>
+    <td>${esc(a.full_name || "—")}</td>
     <td>${a.role === "manager" ? '<span class="chip">level 2 · manager</span>' : '<span class="chip gray">level 1 · user</span>'}</td>
     <td>${a.active === false ? '<span class="chip red">nonaktif</span>' : '<span class="chip green">aktif</span>'}</td>
     <td>${esc(fmtDate(Math.floor(Date.parse(a.created_at) / 1000)))}</td>
     <td>${a.id === S.session.userId ? "—" : `<button class="btn sm" data-role-toggle="${esc(a.id)}" data-role-now="${esc(a.role)}" data-uname="${esc(a.username)}">${a.role === "manager" ? "Jadikan user" : "Jadikan manager"}</button> <button class="btn sm ${a.active === false ? "" : "danger"}" data-act-toggle="${esc(a.id)}" data-act-now="${a.active === false ? "0" : "1"}" data-uname="${esc(a.username)}">${a.active === false ? "Aktifkan" : "Nonaktifkan"}</button>`}</td>
-  </tr>`).join("") || '<tr><td colspan="5" class="empty">Belum ada akun.</td></tr>';
+  </tr>`).join("") || '<tr><td colspan="6" class="empty">Belum ada akun.</td></tr>';
   tb.querySelectorAll("[data-role-toggle]").forEach(b => b.onclick = async ()=>{
     const id = b.dataset.roleToggle, now = b.dataset.roleNow, uname = b.dataset.uname;
     if (now === "manager" && managers.length <= 1) return toast("Minimal satu manager aktif harus tersisa.", true);
@@ -1105,7 +1076,7 @@ async function renderAccounts(){
     try { await SB.updateProfile(id, { active: !deact }); await renderAccounts(); toast(deact ? "Akun dinonaktifkan" : "Akun diaktifkan"); } catch(e){ toast(e.message, true); }
   });
 }
-const PANEL_ROLE = { setup:null, login:null, request:"user", approve:"manager", verify:null, keys:"manager", history:"manager", help:null };
+const PANEL_ROLE = { setup:null, login:null, request:"user", approve:"manager", verify:null, keys:"manager", history:"manager" };
 function defaultTab(){
   const role = S.session ? S.session.role : null;
   if (role === "manager") return "approve";
@@ -1131,10 +1102,11 @@ function applyRole(){
   const cs = $("chipSession");
   if (cs){
     cs.classList.toggle("hide", !role);
-    if (role) cs.textContent = (S.session.username || "verifier") + " · " + (role === "manager" ? "level 2 · manager" : role === "user" ? "level 1 · user" : "verifier");
+    if (role) cs.textContent = (S.session.fullName && S.session.fullName !== S.session.username ? S.session.fullName + " (" + S.session.username + ")" : (S.session.username || "verifier")) + " · " + (role === "manager" ? "level 2 · manager" : role === "user" ? "level 1 · user" : "verifier");
   }
   $("btnLogout").classList.toggle("hide", !role || role === "verifier");
   $("btnChangePass").classList.toggle("hide", !role || role === "verifier");
+  $("btnChangeName").classList.toggle("hide", !role || role === "verifier");
 }
 async function doLogin(){
   const u = $("liUser").value.trim().toLowerCase(), p = $("liPass").value;
@@ -1143,7 +1115,7 @@ async function doLogin(){
     await SB.login(u, p);
     const prof = await sbProfileOrThrow();
     err.style.display = "none";
-    S.session = { username: prof.username || u, role: prof.role, userId: prof.id, ts: Math.floor(Date.now()/1000) };
+    S.session = { username: prof.username || u, fullName: prof.full_name || prof.username || u, role: prof.role, userId: prof.id, ts: Math.floor(Date.now()/1000) };
     S.sessionPass = p;
     S.keys = { ES256:null, RS256:null };
     try{ await loadKeys(); }catch(e){}
@@ -1158,7 +1130,7 @@ async function doLogin(){
     renderKeyUI(); renderQueue(); renderMyRequests(); renderAccounts();
     loadHistory().then(renderHistory).catch(()=>{});
     startPolling();
-    toast("Selamat datang, " + S.session.username + " (" + (prof.role === "manager" ? "level 2 — manager" : "level 1 — user") + ")");
+    toast("Selamat datang, " + (S.session.fullName || S.session.username) + " (" + (prof.role === "manager" ? "level 2 — manager" : "level 1 — user") + ")");
   }catch(e){
     try { await SB.logout(); } catch(_){}
     S.session = null; applyRole();
@@ -1168,16 +1140,17 @@ async function doLogin(){
   }
 }
 async function doSignup(){
-  const u = $("suUser").value.trim().toLowerCase(), p = $("suPass").value, p2 = $("suPass2").value;
+  const nm = $("suName").value.trim(), u = $("suUser").value.trim().toLowerCase(), p = $("suPass").value, p2 = $("suPass2").value;
   const err = $("suErr"); err.style.display = "none";
+  if (nm.length < 2){ err.style.display = "block"; err.textContent = "Nama lengkap wajib diisi (minimal 2 karakter) — nama ini dicetak di bawah barcode."; return; }
   if (!VALID_USER.test(u)){ err.style.display = "block"; err.textContent = "Username 3–30 karakter: huruf kecil, angka, titik, strip, underscore."; return; }
   if (!p || p.length < 6){ err.style.display = "block"; err.textContent = "Password minimal 6 karakter."; return; }
   if (p !== p2){ err.style.display = "block"; err.textContent = "Konfirmasi password tidak sama."; return; }
   try{
-    await SB.signup(u, p);
+    await SB.signup(u, p, false, nm);
     const became = await sbEnsureFirstManager();
     const prof = await sbProfileOrThrow();
-    S.session = { username: prof.username || u, role: prof.role, userId: prof.id, ts: Math.floor(Date.now()/1000) };
+    S.session = { username: prof.username || u, fullName: prof.full_name || nm, role: prof.role, userId: prof.id, ts: Math.floor(Date.now()/1000) };
     S.sessionPass = p;
     applyRole();
     switchTab(defaultTab());
@@ -1264,7 +1237,7 @@ async function submitRequest(){
   const btn = $("btnSubmitReq"); if (btn) btn.disabled = true;
   try{
     await SB.createRequest({
-      created_by: S.session.userId, by_name: S.session.username,
+      created_by: S.session.userId, by_name: S.session.fullName || S.session.username,
       card_name: S.card.name || "kartu.png", card_data: meta,
       image_b64: bytesToB64(S.card.bytes), image_mime: "image/png",
       status: "menunggu", note: "", payload: ""
@@ -1331,7 +1304,7 @@ async function renderMyRequests(){
   const tb = $("myReqBody"); if (!tb) return;
   if (!S.session || !S.session.userId){ tb.innerHTML = '<tr><td colspan="5" class="empty">Belum ada pengajuan.</td></tr>'; return; }
   let all;
-  try { all = (await reqAll()).filter(r => r.created_by === S.session.userId || r.by === S.session.username); }
+  try { all = (await reqAll()).filter(r => r.created_by === S.session.userId || r.by === S.session.username || (S.session.fullName && r.by === S.session.fullName)); }
   catch(e){ tb.innerHTML = '<tr><td colspan="5" class="empty">' + esc(e.message || "Gagal memuat") + '</td></tr>'; return; }
   all.sort((a,b)=>b.ts-a.ts);
   if (!all.length){ tb.innerHTML = '<tr><td colspan="5" class="empty">Belum ada pengajuan.</td></tr>'; return; }
@@ -1366,8 +1339,10 @@ async function prepareApprovedCard(id){
   const obj = JSON.parse(r.payload);
   const rec = await bytesToImageRec(r.cardBytes, r.cardName || "kartu.png");
   const meta = { ...r.meta };
-  delete meta._layout; delete meta._sig;
+  const sname = String(meta._sname || r.decidedBy || "").trim();
+  delete meta._layout; delete meta._sig; delete meta._sname;
   S.card = rec; S.signMeta = meta; S.currentReqId = null; S.userApprovedId = id;
+  $("qrCaption").value = "Digitaly Signed - " + (sname || "Manager");   // nama penyetuju di bawah barcode
   S.sig = { payload: r.payload, obj, sigB64: obj.s || "", hashB64: obj.h || "", ts: obj.ts,
             alg: obj.alg, kid: obj.kid || r.kid, digestB64: "", publicPem: "" };
   S.sigImg = null;   // tanda tangan manager TIDAK dicetak pada kartu
@@ -1485,7 +1460,7 @@ async function unlockKey(alg, passphrase){
 /* impor dari PEM/JWK yang ditempel */
 async function importPrivateFromText(text, passphrase){
   text = text.trim();
-  // blob terenkripsi KartuSign
+  // blob terenkripsi aplikasi (ID Card Management)
   if (text.startsWith("{")){
     let o;
     try{ o = JSON.parse(text); }catch(e){ throw new Error("JSON tidak valid."); }
@@ -1522,7 +1497,7 @@ async function importPrivateFromText(text, passphrase){
     }
     throw new Error("PEM tidak dapat diimpor (pastikan PKCS#8 'BEGIN PRIVATE KEY', bukan format lama).");
   }
-  throw new Error("Format tidak dikenali. Gunakan PEM PKCS#8, JWK, atau blob KartuSign.");
+  throw new Error("Format tidak dikenali. Gunakan PEM PKCS#8, JWK, atau blob ID Card Management.");
 }
 
 /* impor kunci publik (untuk verifikasi) */
@@ -2091,7 +2066,7 @@ function updateTrustChip(){
 }
 function buildVerifierHtml(){
   const entries = ["ES256","RS256"].map(a=>S.keys[a]).filter(r=>r && r.publicPem)
-    .map(r=>({ kid:r.kid, alg:r.alg, pem:r.publicPem, label:($("mApprover").value.trim() || "Penerbit KartuSign"), ts:Math.floor(Date.now()/1000) }));
+    .map(r=>({ kid:r.kid, alg:r.alg, pem:r.publicPem, label:($("mApprover").value.trim() || "Penerbit ID Card Management"), ts:Math.floor(Date.now()/1000) }));
   if (!entries.length) throw new Error("Belum ada kunci untuk ditanam — buat kunci dulu di tab ini.");
   const json = JSON.stringify(entries);
   let html = SELF_HTML;
@@ -2218,7 +2193,7 @@ async function doVerify(){
       <dl class="kv" style="margin:0">${metaRows}</dl>`);
   } else {
     show("err", `<h3><span class="chip amber">? ISSUER TIDAK DIKENAL</span></h3>
-      <p style="font-size:13.5px;margin:0 0 10px">Kid <span class="mono">${esc(obj.kid || "—")}</span> (${esc(obj.alg)}) tidak ada dalam daftar kunci terpercaya di aplikasi ini. Gunakan file <b>KartuSign-Verifier.html</b> dari penerbit (kunci sudah tertanam), atau tempel kunci publik penerbit lewat <i>Opsi lanjutan</i>.</p>
+      <p style="font-size:13.5px;margin:0 0 10px">Kid <span class="mono">${esc(obj.kid || "—")}</span> (${esc(obj.alg)}) tidak ada dalam daftar kunci terpercaya di aplikasi ini. Gunakan file <b>IDCardManagement-Verifier.html</b> dari penerbit (kunci sudah tertanam), atau tempel kunci publik penerbit lewat <i>Opsi lanjutan</i>.</p>
       <dl class="kv" style="margin:0">${metaRows}</dl>`);
   }
 
@@ -2314,7 +2289,7 @@ function init(){
     b.addEventListener("click", ()=>switchTab(b.dataset.tab));
   });
   if (IS_VERIFIER){
-    document.title = "KartuSign Verifier — Periksa Keaslian Kartu";
+    document.title = "ID Card Management Verifier — Periksa Keaslian Kartu";
     const b = document.querySelector(".brand .badge");
     if (b) b.textContent = "Mode Verifier · kunci tertanam";
   }
@@ -2329,6 +2304,19 @@ function init(){
   $("btnLogin").addEventListener("click", doLogin);
   $("liPass").addEventListener("keydown", (e)=>{ if (e.key === "Enter") doLogin(); });
   $("btnLogout").addEventListener("click", logout);
+  $("btnChangeName").addEventListener("click", async ()=>{
+    if (!S.session || S.session.role === "verifier") return;
+    const nama = prompt("Nama lengkap baru (minimal 2 karakter):", S.session.fullName || "");
+    if (nama === null) return;
+    const nm = nama.trim();
+    if (nm.length < 2) return toast("Nama lengkap minimal 2 karakter.", true);
+    try{
+      await SB.updateMyName(nm);
+      S.session.fullName = nm;
+      applyRole(); renderAccounts();
+      toast("Nama lengkap diperbarui — approval berikutnya mencantumkan \"" + nm + "\" di bawah barcode");
+    }catch(e){ toast(e.message || String(e), true); }
+  });
   $("btnChangePass").addEventListener("click", async ()=>{
     if (!S.session || S.session.role === "verifier") return;
     const oldP = prompt("Password lama:"); if (oldP === null) return;
@@ -2354,8 +2342,8 @@ function init(){
   $("btnAddAcc").addEventListener("click", async ()=>{
     const btn = $("btnAddAcc"); btn.disabled = true;
     try{
-      await sbAddAccount($("accUser").value, $("accRole").value, $("accPass").value);
-      $("accUser").value = ""; $("accPass").value = "";
+      await sbAddAccount($("accUser").value, $("accRole").value, $("accPass").value, $("accName").value);
+      $("accUser").value = ""; $("accPass").value = ""; $("accName").value = "";
       await renderAccounts(); toast("Akun ditambahkan di server");
     }catch(e){ toast(e.message, true); }
     btn.disabled = false;
@@ -2363,8 +2351,8 @@ function init(){
   bindDrop($("dropSig"), $("fileSig"), async (file)=>{
     try{
       const rec = await loadImageFile(file, "sig");
-      $("sigFileInfo").innerHTML = `<b>${esc(rec.name)}</b> · ${rec.w}×${rec.h} px · ${(rec.bytes.length/1024).toFixed(1)} KB → dilampirkan saat approve (hash diikat ke payload + versi ringkas disematkan di QR)`;
       renderSigInfo();
+      toast("Tanda tangan " + rec.name + " siap — dilampirkan saat approve");
     }catch(e){ toast(e.message, true); }
   });
   bindDrop($("dropVerifyImg"), $("fileVerifyImg"), async (file)=>{
@@ -2459,6 +2447,7 @@ function init(){
         if (r && r.status === "menunggu"){
           const cd = { ...(r.meta || {}) };
           delete cd._layout;
+          cd._sname = (S.session && (S.session.fullName || S.session.username)) || "";
           if (S.sigImg && S.sigImg.bytes) cd._sig = bytesToB64(S.sigImg.bytes);
           await SB.updateRequest(S.currentReqId, { status:"disetujui", payload:S.sig.payload, kid:S.sig.kid, signed_by: S.session ? S.session.username : "", card_data: cd });
         }
@@ -2495,8 +2484,8 @@ function init(){
   $("btnVerifierBuild").addEventListener("click", ()=>{
     try{
       const html = buildVerifierHtml();
-      downloadBlob(new Blob([html], {type:"text/html"}), "KartuSign-Verifier.html");
-      toast("KartuSign-Verifier.html diunduh — kunci publik sudah tertanam");
+      downloadBlob(new Blob([html], {type:"text/html"}), "IDCardManagement-Verifier.html");
+      toast("IDCardManagement-Verifier.html diunduh — kunci publik sudah tertanam");
     }catch(e){ toast(e.message || String(e), true); }
   });
 
@@ -2626,7 +2615,7 @@ function init(){
     if (SB.hasSession()){
       try{
         const prof = await sbProfileOrThrow();
-        S.session = { username: prof.username, role: prof.role, userId: prof.id, ts: Math.floor(Date.now()/1000) };
+        S.session = { username: prof.username, fullName: prof.full_name || prof.username, role: prof.role, userId: prof.id, ts: Math.floor(Date.now()/1000) };
       }catch(e){ try{ await SB.logout(); }catch(_){} S.session = null; }
     }
     applyRole();
