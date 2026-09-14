@@ -300,11 +300,10 @@ canvas.qrthumb{image-rendering:pixelated;border:1px solid var(--line);border-rad
           <div class="row c2">
             <div class="field">
               <label class="f" for="mCardId">Nomor / ID kartu <span class="chip gray" style="font-size:10px">otomatis</span></label>
-              <div class="flex" style="gap:8px;flex-wrap:nowrap">
+              <div class="flex" style="gap:8px;flex-wrap:nowrap;align-items:stretch">
                 <input type="text" id="mCardId" placeholder="PUR-2026-09-0001" autocomplete="off" readonly style="flex:1 1 auto;min-width:0">
                 <button class="btn sm" id="btnNewCid" type="button" title="Ambil nomor baru dari server">↻ Nomor baru</button>
               </div>
-              <p class="hint">Format <b>PUR-tahun-bulan-0001</b> — 4 digit terakhir <b>increment otomatis</b> dari server (unik lintas pengguna, mulai lagi dari 0001 setiap bulan).</p>
             </div>
             <div class="field">
               <label class="f" for="mHolder">Nama pemegang kartu</label>
@@ -313,7 +312,7 @@ canvas.qrthumb{image-rendering:pixelated;border:1px solid var(--line);border-rad
           </div>
           <div class="row c2">
             <div class="field">
-              <label class="f" for="mApprover">Diajukan untuk disahkan oleh <span class="chip gray" style="font-size:10px">tetap</span></label>
+              <label class="f" for="mApprover">Diajukan untuk disahkan oleh</label>
               <input type="text" id="mApprover" value="Manager Purchasing" autocomplete="off" readonly>
             </div>
             <div class="field">
@@ -322,7 +321,7 @@ canvas.qrthumb{image-rendering:pixelated;border:1px solid var(--line);border-rad
             </div>
           </div>
           <div class="field">
-            <label class="f" for="mReason">Keterangan / alasan <span class="chip gray" style="font-size:10px">tetap</span></label>
+            <label class="f" for="mReason">Keterangan / alasan</label>
             <input type="text" id="mReason" value="Kartu ini dinyatakan Sah dan Asli di keluarkan oleh Purchasing Section" autocomplete="off" readonly>
           </div>
           <div class="sep"></div>
@@ -745,7 +744,7 @@ canvas.qrthumb{image-rendering:pixelated;border:1px solid var(--line);border-rad
 <!-- ============ TAB: HELP ============ -->
 
 <footer class="noprint">
-  ID Card Management · satu file HTML + backend Supabase (Auth, Postgres, RLS) · Tanda tangan digital ECDSA P-256 / RSA-2048 · Web Crypto API
+  - Purchasing Departmen -
 </footer>
 </div>
 
