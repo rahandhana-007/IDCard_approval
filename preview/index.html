@@ -362,6 +362,7 @@ canvas.qrthumb{image-rendering:pixelated;border:1px solid var(--line);border-rad
             <canvas id="approvedCanvas"></canvas>
           </div>
           <p class="hint">Geser (drag) badge QR langsung pada pratinjau untuk memindahkan posisinya.</p>
+          <p class="hint" id="printHint"></p>
           <div class="sep"></div>
           <div class="row c2">
             <div class="field">
@@ -458,6 +459,11 @@ canvas.qrthumb{image-rendering:pixelated;border:1px solid var(--line);border-rad
             <span>Klik atau tarik file ke sini — dilampirkan saat approve.</span>
           </div>
           <input type="file" id="fileSig" accept="image/*" class="hide">
+          <div id="sigPrevBox" class="hide" style="margin-top:10px">
+            <div class="preview" style="min-height:0;padding:8px" title="Kotak kotak-kotak = latar transparan asli file Anda">
+              <img id="sigPrev" alt="pratinjau tanda tangan (latar transparan)" style="max-width:100%;max-height:110px;height:auto;display:block">
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -485,6 +491,10 @@ canvas.qrthumb{image-rendering:pixelated;border:1px solid var(--line);border-rad
             <div class="field" style="align-self:end;padding-bottom:6px">
               <label style="font-size:13px"><input type="checkbox" id="qrShortKid" style="width:auto"> Key ID ringkas (6 karakter)</label>
             </div>
+          </div>
+          <div class="field" style="margin-top:10px">
+            <label style="font-size:13px"><input type="checkbox" id="sigEmbed" checked style="width:auto"> Sematkan tanda tangan ringkas (<span class="mono">ss</span>) di QR</label>
+            <p class="hint">Hapus centang untuk <b>QR lebih ringan</b> (modul lebih sedikit — jauh lebih mudah terbaca scanner pada cetak kecil/skala 25%). Konsekuensinya: verifikasi <i>offline</i> (file verifier) tidak dapat menampilkan ulang gambar tanda tangan; saat online/login PNG asli tetap tampil di hasil.</p>
           </div>
           <p class="hint" id="densityHint"></p>
           <div class="btnrow">
@@ -3934,7 +3944,7 @@ async function signCard(metaOverride){
   let sh = "", ss = "";
   if (S.sigImg && S.sigImg.bytes){
     sh = b64u(await crypto.subtle.digest("SHA-256", S.sigImg.bytes));
-    ss = await buildCompactSig(S.sigImg.img, 96, 40);
+    if ($("sigEmbed") && $("sigEmbed").checked) ss = await buildCompactSig(S.sigImg.img, 96, 40);
   }
   const base = { v:3, alg, kid:kidOut, ts, cid:meta.cid, hld:meta.hld, apr:meta.apr, exp:meta.exp, rsn:meta.rsn, h:imgHashB64, sh, ss };
   const cs = canonicalString(base);
@@ -4020,8 +4030,8 @@ async function expandCompactSig(ss){
   const id = g.createImageData(w, h);
   for (let i=0;i<w*h;i++){
     const dark = (bytes[i>>3] >> (7 - (i & 7))) & 1;
-    id.data[i*4] = id.data[i*4+1] = id.data[i*4+2] = dark ? 15 : 255;
-    id.data[i*4+3] = 255;
+    if (dark){ id.data[i*4] = id.data[i*4+1] = id.data[i*4+2] = 15; id.data[i*4+3] = 255; }
+    else { id.data[i*4] = id.data[i*4+1] = id.data[i*4+2] = 255; id.data[i*4+3] = 0; }   // latar transparan
   }
   g.putImageData(id, 0, 0);
   return c.toDataURL("image/png");
@@ -4197,6 +4207,11 @@ function render(){
 }
 function renderApproved(){
   if (!S.sig || !S.userApprovedId) return;
+  const ph = $("printHint");
+  if (ph){
+    const adv = qrPrintAdvice(S.sig.payload);
+    ph.innerHTML = adv ? `<b>Panduan cetak:</b> QR ini versi ${adv.ver} (${adv.n} modul) · agar terbaca scanner cetak minimal ≈ <b>${adv.mm}×${adv.mm} mm</b> (0,4 mm/modul). Bila kartu dicetak lebih kecil (mis. skala 25%): perbesar ukuran QR, pilih koreksi galat <b>L</b>, atau minta manager menghapus centang <i>sematkan ss</i> agar QR lebih ringan.` : "";
+  }
   const box = $("approvedBox");
   if (!box || box.classList.contains("hide")) return;
   const cv = $("approvedCanvas");
@@ -4224,7 +4239,10 @@ function loadImageFile(file, which){
       img.onload = ()=>{
         const rec = { file, name:file.name, img, bytes, w:img.naturalWidth, h:img.naturalHeight };
         if (which === "card"){ S.card = rec; }
-        else if (which === "sig"){ S.sigImg = rec; }
+        else if (which === "sig"){ S.sigImg = rec;
+          const prev = $("sigPrev");            // pratinjau lintas-jalur: alpha/transparansi utuh
+          if (prev){ prev.src = blobUrl; $("sigPrevBox").classList.remove("hide"); }
+        }
         else if (which === "vsig"){ S.verifySig = rec; }
         else { S.verifyImg = rec; }
         setTimeout(()=>URL.revokeObjectURL(blobUrl), 60000);
@@ -4342,6 +4360,14 @@ function renderKeyUI(){
   }
   renderSigInfo();
 }
+function qrPrintAdvice(text){
+  try{
+    const q = QR(0, ($("qrEcl") && $("qrEcl").value) || "M"); q.addData(text, "Byte"); q.make();
+    const n = q.getModuleCount();
+    const mm = Math.ceil((n + 4) * 0.4);   // 0,4 mm per modul + quiet zone 2 modul
+    return { n, ver: Math.round((n - 17) / 4), mm };
+  }catch(e){ return null; }
+}
 function qrDensityLabel(text){
   try{
     const q = QR(0, ($("qrEcl") && $("qrEcl").value) || "M"); q.addData(text, "Byte"); q.make();
@@ -4357,7 +4383,7 @@ function estimatePayload(alg, meta){
   const m = meta || { cid:"KTR-2026-000123", hld:"Nama Pemegang Kartu", apr:"Pejabat Berwenang", exp:"2027-12-31", rsn:"" };
   const sigLen = ALG[alg].sigBytes;
   const withSig = !!(S.sigImg && S.sigImg.bytes);
-  const withEmbed = withSig;
+  const withEmbed = withSig && $("sigEmbed") && $("sigEmbed").checked;
   const shortKid = $("qrShortKid") && $("qrShortKid").checked;
   const o = { v:3, alg, kid: shortKid ? "aaaaaa" : "aaaaaaaaaaaa", ts:1767225600, cid:m.cid, hld:m.hld, apr:m.apr, exp:m.exp, rsn:m.rsn,
               h:"A".repeat(43), s:"A".repeat(Math.ceil(sigLen*4/3)) };
@@ -4374,10 +4400,14 @@ function renderSigInfo(){
   const dh = $("densityHint");
   if (dh){
     if (S.sig){
-      dh.innerHTML = "<b>Kepadatan QR:</b> " + esc(qrDensityLabel(S.sig.payload)) + " &middot; payload " + S.sig.payload.length + " karakter.";
+      const adv = qrPrintAdvice(S.sig.payload);
+      dh.innerHTML = "<b>Kepadatan QR:</b> " + esc(qrDensityLabel(S.sig.payload)) + " &middot; payload " + S.sig.payload.length + " karakter." +
+        (adv ? ` <b>${adv.n} modul</b> · cetak minimal ≈ <b>${adv.mm}×${adv.mm} mm</b> (0,4 mm/modul). Untuk cetak sangat kecil: pilih koreksi <b>L</b> dan/atau hapus centang <i>ss</i>.` : "");
     } else {
       const est = estimatePayload($("qrAlgo").value, S.signMeta || metaOf());
-      dh.innerHTML = "<b>Perkiraan kepadatan QR:</b> " + esc(qrDensityLabel("X".repeat(est))) + " &middot; ±" + est + " karakter.";
+      const adv = qrPrintAdvice("X".repeat(est));
+      dh.innerHTML = "<b>Perkiraan kepadatan QR:</b> " + esc(qrDensityLabel("X".repeat(est))) + " &middot; ±" + est + " karakter." +
+        (adv ? ` ≈ <b>${adv.n} modul</b> · cetak minimal ≈ <b>${adv.mm}×${adv.mm} mm</b>.` : "");
     }
   }
   const done = !!S.sig;
@@ -4504,11 +4534,11 @@ async function doVerify(){
     }
     let imgTag = "";
     if (fullSigUrl){
-      imgTag = `<img src="${fullSigUrl}" alt="tanda tangan PNG manager" style="background:#fff;border:1px solid var(--line);border-radius:6px;padding:4px;max-width:260px;height:auto;display:block;margin:6px 0">`;
+      imgTag = `<img src="${fullSigUrl}" alt="tanda tangan PNG manager" style="border:1px solid var(--line);border-radius:6px;padding:4px;max-width:260px;height:auto;display:block;margin:6px 0;background:transparent">`;
     } else if (obj.ss){
       try {
         const url = await expandCompactSig(obj.ss);
-        imgTag = `<img src="${url}" alt="tanda tangan dari QR" style="background:#fff;border:1px solid var(--line);border-radius:6px;padding:4px;max-width:230px;height:auto;display:block;margin:6px 0">`;
+        imgTag = `<img src="${url}" alt="tanda tangan dari QR" style="border:1px solid var(--line);border-radius:6px;padding:4px;max-width:230px;height:auto;display:block;margin:6px 0;background:transparent">`;
       } catch(e){ imgTag = `<p class="hint">${esc(e.message)}</p>`; }
     }
     sigLine = `<div class="sep"></div><label class="f">Tanda tangan manager (PNG)</label>
@@ -4739,6 +4769,9 @@ function init(){
   ["qrPos","qrCaption","qrRotate","wmOn","qrOverlay","qrEcl","qrShortKid"].forEach(id=>{
     $(id).addEventListener("input", render);
     $(id).addEventListener("change", render);
+  });
+  ["qrEcl","sigEmbed"].forEach(id=>{
+    $(id).addEventListener("change", ()=>{ render(); renderSigInfo(); });
   });
   $("qrPos").addEventListener("change", ()=>{ if ($("qrPos").value !== "custom"){ render(); } });
   ["mCardId","mHolder","mApprover","mValid","mReason"].forEach(id=>{
@@ -5003,7 +5036,7 @@ function init(){
 window.KartuSign = {
   version: "1.0.0",
   state: S,
-  _debug: { render, renderSigInfo, encryptBlob, decryptBlob, importPrivateFromText, computeKid, makeQrCanvas, signCard, loadImageFile, computeBadge, applyOrientation, buildVerifierHtml, trustSources, verifySignatureOf, getSelfHtml: ()=>SELF_HTML, canonicalString, buildCompactSig, expandCompactSig, renderApproved,
+  _debug: { render, renderSigInfo, encryptBlob, decryptBlob, importPrivateFromText, computeKid, makeQrCanvas, signCard, loadImageFile, computeBadge, applyOrientation, buildVerifierHtml, trustSources, verifySignatureOf, getSelfHtml: ()=>SELF_HTML, canonicalString, buildCompactSig, expandCompactSig, renderApproved, qrPrintAdvice,
   SB, sbAddAccount, sbEnsureFirstManager, sbProfileOrThrow, doSignup, renderAccounts, rowToRec, bytesToB64, b64ToBytes, loadHistory, pushHistory, startPolling, stopPolling, sendHeartbeat, fetchNewCid,
     reqAll, reqGet, loadRequest, submitRequest, doLogin, logout, applyRole, bytesToImageRec, renderQueue, renderMyRequests, unlockKey, loadKeys, persistKeys, ensureKey, prepareApprovedCard, userDownload, imageFromURL },
   algos: ALG,

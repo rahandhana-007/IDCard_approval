@@ -224,7 +224,7 @@ Bila ruang sempit: pilih ECL **L** dan aktifkan **Key ID ringkas**.
 | `supabase/schema.sql` | **Skema database Supabase** (tabel + trigger + kebijakan RLS) — jalankan di SQL Editor |
 | `supabase/keep-alive.yml` | Template cron **GitHub Actions** — heartbeat anti-pause tiap 3 hari (lihat *Menjaga Supabase tetap aktif*) |
 | `deploy/` | Folder siap deploy Netlify (`index.html` + `netlify.toml` + contoh kartu) |
-| `test.js` | Uji end-to-end otomatis (**156 kasus**) memakai jsdom + **mock server Supabase** (Auth/PostgREST/RLS), termasuk alur lintas-perangkat user→manager dan build+uji `IDCardManagement-Verifier.html` |
+| `test.js` | Uji end-to-end otomatis (**163 kasus**) memakai jsdom + **mock server Supabase** (Auth/PostgREST/RLS), termasuk alur lintas-perangkat user→manager dan build+uji `IDCardManagement-Verifier.html` |
 | `qrtest.js` | Uji round-trip QR: payload → matriks → decode |
 | `make_sample.py` | Pembangkit `contoh-kartu.png` |
 
@@ -309,13 +309,20 @@ Folder `deploy/` sudah siap unggah: `index.html` (aplikasi), `contoh-kartu.png`,
 
 ## Catatan rilis
 
+**v2.5 (revisi atas masukan pengguna — QR terbaca pada cetak skala kecil)**
+- **Opsi baru di panel approval: "Sematkan tanda tangan ringkas (ss) di QR"** — default ON (perilaku v2.2 tetap). **Hapus centang** → payload jauh lebih ringan → versi QR turun → modul lebih sedikit → **terbaca scanner walau dicetak kecil/skala 25%**. Konsekuensi saat OFF: verifier *offline* tak dapat menampilkan ulang gambar tanda tangan; verifikasi online/login tetap menampilkan PNG asli dari server.
+- **Panduan cetak terukur**: panel manager & panel user kini menampilkan **jumlah modul** QR dan **ukuran cetak minimal dalam mm** (asumsi 0,4 mm/modul + quiet zone), plus saran konkret (perbesar QR, koreksi galat **L**, atau cabut centang ss).
+- Pilihan koreksi galat (ECL L/M/Q/H) langsung memperbarui estimasi kepadatan & panduan cetak.
+- Uji otomatis: 159 → **163 kasus** (ss opsional + payload tetap VALID, modul lebih sedikit tanpa ss, panduan mm tampil di kedua panel).
+
 **v2.4 (revisi atas masukan pengguna — nomor kartu otomatis + field pengajuan tetap)**
 - **Nomor / ID kartu dibuat otomatis oleh server** dengan format **`PUR-tahun-bulan-NNNN`** (contoh `PUR-2026-09-0001`): 4 digit terakhir **increment** atomik per bulan (zona Asia/Jakarta) lewat RPC `next_card_id()` + tabel `card_seq` — **unik lintas pengguna** walau dua orang mengajukan bersamaan, dan mulai lagi dari `0001` setiap ganti bulan. Kolomnya read-only; nomor diambil saat tab *Pengajuan* dibuka, sesudah pengajuan terkirim, atau manual lewat tombol **↻ Nomor baru**.
 - **"Diajukan untuk disahkan oleh" dikunci** = `Manager Purchasing` (read-only, ikut tertanda tangan di payload sebagai `apr`).
 - **"Keterangan / alasan" dikunci** = `Kartu ini dinyatakan Sah dan Asli di keluarkan oleh Purchasing Section` (read-only, payload `rsn`).
 - **Migrasi**: jalankan ulang `supabase/schema.sql` (menambah tabel `card_seq` + RPC `next_card_id`; aman untuk data lama). Tanpa migrasi, tombol ↻ menampilkan pesan error yang jelas.
+- **Transparansi tanda tangan PNG dipertahankan**: pratinjau unggah baru berlatar kotak-kotak (checkerboard) membuktikan alpha utuh; versi ringkas `ss` kini diekspansi dengan **latar transparan** (bukan putih); gambar tanda tangan di hasil verifikasi tidak lagi dipaksa `background:#fff`.
 - **Perbaikan geometri badge QR**: sebelumnya QR digambar selebar badge penuh mulai dari posisi padding, sehingga barcode bisa menembus keluar border. Kini QR digambar sebesar sisi dalam badge (`lebar − 2×padding`) dan **border abu-abu tegas menutup seluruh QR + caption** dengan margin merata — sesuai laporan pengguna (kartu feri dengan QR keluar kotak).
-- Uji otomatis: 152 → **157 kasus** (format & auto-isi nomor, increment +1 via RPC, kunci field pengesah/keterangan, ambil nomor baru pasca-submit, geometri badge muat di dalam border).
+- Uji otomatis: 152 → **159 kasus** (format & auto-isi nomor, increment +1 via RPC, kunci field pengesah/keterangan, ambil nomor baru pasca-submit, geometri badge muat di dalam border).
 
 **v2.3 (revisi atas masukan pengguna — profil dengan Nama wajib + caption penanda tangan)**
 - **Pendaftaran profil wajib mengisi Nama lengkap** (minimal 2 karakter): di form *Buat akun baru* maupun saat manager menambah akun di tab *Kunci & Akun*. Nama disimpan di kolom baru `profiles.full_name` (server Supabase).
