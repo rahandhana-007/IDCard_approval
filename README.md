@@ -67,7 +67,7 @@ SHA-256( string kanonik(metadata) + byte gambar )  ──► ditandatangani kunc
 ### Orientasi kartu (default: POTRET)
 
 - Pilihan **Orientasi kartu** berada di blok *Tampilan tanda tangan (QR)*; **default = Potret/berdiri**.
-- Saat *Potret*, checkbox **Putar tanda tangan 90°** otomatis aktif → blok QR + teks menjadi **strip vertikal di tepi kartu**, sehingga tidak memakan lebar kartu yang sempit. Pilih *Lanskap* untuk kembali mendatar (rotasi mati).
+- Sejak v2.7 checkbox **Putar badge 90°** **tidak** dicentang otomatis (default mendatar agar modul QR besar & mudah dipindai). Centang manual bila ingin strip vertikal di tepi kartu; pilih *Lanskap* untuk memastikan rotasi mati.
 - Posisi (kanan/kiri-atas/bawah/bebas), ukuran, dan margin tetap bisa diatur; perhitungan jejak badge sudah memperhitungkan rotasi sehingga badge tidak pernah terpotong tepi kartu.
 - `contoh-kartu.png` yang disertakan juga berformat potret (54 × 85,6 mm @300 dpi).
 
@@ -224,7 +224,7 @@ Bila ruang sempit: pilih ECL **L** dan aktifkan **Key ID ringkas**.
 | `supabase/schema.sql` | **Skema database Supabase** (tabel + trigger + kebijakan RLS) — jalankan di SQL Editor |
 | `supabase/keep-alive.yml` | Template cron **GitHub Actions** — heartbeat anti-pause tiap 3 hari (lihat *Menjaga Supabase tetap aktif*) |
 | `deploy/` | Folder siap deploy Netlify (`index.html` + `netlify.toml` + contoh kartu) |
-| `test.js` | Uji end-to-end otomatis (**163 kasus**) memakai jsdom + **mock server Supabase** (Auth/PostgREST/RLS), termasuk alur lintas-perangkat user→manager dan build+uji `IDCardManagement-Verifier.html` |
+| `test.js` | Uji end-to-end otomatis (**171 kasus**) memakai jsdom + **mock server Supabase** (Auth/PostgREST/RLS), termasuk alur lintas-perangkat user→manager dan build+uji `IDCardManagement-Verifier.html` |
 | `qrtest.js` | Uji round-trip QR: payload → matriks → decode |
 | `make_sample.py` | Pembangkit `contoh-kartu.png` |
 
@@ -307,7 +307,36 @@ Folder `deploy/` sudah siap unggah: `index.html` (aplikasi), `contoh-kartu.png`,
 - Verifikasi keaslian tetap bisa **offline** lewat `verifier.html` (kunci publik tertanam) atau tab Verifikasi saat login.
 - HTTPS bawaan Netlify membuat Web Crypto API aktif penuh (syarat secure context terpenuhi).
 
+## Membawa koneksi Supabase ikut file / link (anti isi-ulang antar browser)
+
+Config koneksi (URL + anon key) tersimpan di **localStorage → per browser & per perangkat** (isolasi bawaan browser; anon key memang publik dan dilindungi RLS). Karena itu browser baru biasanya memunculkan panel *Hubungkan ke Supabase* lagi. Tiga cara menghindarinya:
+
+1. **Link berparameter (paling mudah)**: bagikan/buka aplikasi lewat
+   `https://situs-anda/?sb_url=https://xxxx.supabase.co&sb_key=ANON_KEY`
+   Sekali dibuka, config tersimpan di browser itu dan parameter otomatis dibuang dari address bar. Cocok untuk bookmark tautan internal kantor.
+2. **Build tertanam**: isi `supabase/config.json` dengan `{"url":"https://xxxx.supabase.co","key":"ANON_KEY"}` (atau set env `SB_URL`/`SB_KEY`) lalu jalankan `python3 build.py` → semua salinan (KartuSign.html, preview/, deploy/) sudah berisi koneksi; browser/perangkat apa pun yang membuka file/situs itu langsung terhubung tanpa mengisi apa pun.
+3. **Manual sekali per browser** (perilaku bawaan).
+
+Catatan: **login tetap perlu sekali per browser** — token sesi adalah kredensial dan sengaja tidak dibagi antar browser demi keamanan.
+
 ## Catatan rilis
+
+**v2.8 (revisi atas masukan pengguna — tidak isi ulang koneksi tiap ganti browser)**
+- **Auto-connect**: aplikasi membaca parameter URL `?sb_url=…&sb_key=…` atau koneksi **tertanam saat build** (`supabase/config.json` / env `SB_URL`+`SB_KEY` lewat `build.py`) → panel setup dilewati otomatis; parameter dibuang dari address bar setelah tersimpan.
+- Penjelasan & tip ditambahkan di panel *Hubungkan ke Supabase* dan README.
+- Uji otomatis: 165 → **168 kasus** (browser baru via link parameter: setup tertutup, config tersimpan, address bar bersih).
+- Build rilis sekarang **membawa koneksi Supabase tertanam** (`supabase/config.json` sudah terisi URL + publishable key proyek) → siapa pun yang membuka file/situs langsung terhubung tanpa mengisi panel setup. Uji otomatis: 168 → **171 kasus** (jalur build tertanam).
+
+**v2.7 (revisi atas masukan pengguna — default penempatan QR yang mudah dipindai)**
+- Nilai bawaan panel *Kartu disetujui — tempatkan QR & unduh* kini: **Ukuran badge 25%**, **Ukuran teks 10%**, **Koreksi galat L**, **Putar badge 90° = tidak dicentang** (badge mendatar agar modul besar & mudah dipindai), dan **Key ID ringkas tercentang** (payload −6 karakter).
+- Orientasi *Potret* tidak lagi men-centang rotasi otomatis; rotasi kini murni pilihan pengguna (lanskap tetap mematikan rotasi).
+- Uji otomatis: 164 → **165 kasus** (default baru + rotasi default nonaktif).
+
+**v2.6 (revisi atas masukan pengguna — payload QR dipangkas ≥50%)**
+- **Payload ramping**: untuk data tipikal (kartu PUR + nama pemegang + keterangan tetap), payload turun dari **±764 → ±345 karakter (−55%)**; modul QR (ECL M) **105 → 73**, ukuran cetak minimal (0,4 mm/modul) **44 mm → 31 mm** — jauh lebih mudah terbaca scanner, termasuk pada cetak skala kecil.
+- Dua cara pemangkasan: (1) **`ss` (tanda tangan ringkas) default TIDAK disematkan** — checkbox tetap ada di panel approval bagi yang memakai verifier offline; (2) **teks tetap ditokenisasi**: `Manager Purchasing` → `MP`, kalimat keterangan 71 karakter → `PS1` (hasil verifikasi tetap menampilkan kalimat penuh lewat ekspansi token).
+- Kompatibel dua arah: payload lama (teks penuh / ber-`ss`) tetap terverifikasi; verifier versi lama tetap bisa memverifikasi payload bertoken (hanya tampilan teksnya berupa token).
+- Uji otomatis: 163 → **164 kasus** (payload ramping ≤350 karakter, ekspansi token di verifier, ss ON/OFF eksplisit, approval tanpa ss).
 
 **v2.5 (revisi atas masukan pengguna — QR terbaca pada cetak skala kecil)**
 - **Opsi baru di panel approval: "Sematkan tanda tangan ringkas (ss) di QR"** — default ON (perilaku v2.2 tetap). **Hapus centang** → payload jauh lebih ringan → versi QR turun → modul lebih sedikit → **terbaca scanner walau dicetak kecil/skala 25%**. Konsekuensi saat OFF: verifier *offline* tak dapat menampilkan ulang gambar tanda tangan; verifikasi online/login tetap menampilkan PNG asli dari server.

@@ -213,6 +213,7 @@ canvas.qrthumb{image-rendering:pixelated;border:1px solid var(--line);border-rad
         </div>
         <p class="hint" id="sbErr" style="color:var(--err);display:none;margin-bottom:10px"></p>
         <button class="btn primary wide" id="btnSaveSb">Simpan &amp; Uji Koneksi</button>
+        <p class="hint" style="margin-top:10px">Buka di browser/perangkat lain tanpa mengisi ulang: pakai link berparameter <span class="mono">?sb_url=…&amp;sb_key=…</span>, atau gunakan build dengan koneksi tertanam (lihat README — <i>Membawa koneksi ikut file</i>). Configurasi & sesi tersimpan per-browser (localStorage), jadi masing-masing browser tetap perlu login sekali.</p>
         <div class="sep"></div>
         <p class="note">Langkah menyiapkan Supabase (gratis):<br>
         1. Buat proyek di <span class="mono">supabase.com</span>.<br>
@@ -385,12 +386,12 @@ canvas.qrthumb{image-rendering:pixelated;border:1px solid var(--line);border-rad
           </div>
           <div class="row c2">
             <div class="field">
-              <label class="f" for="qrSize">Ukuran badge: <span id="qrSizeVal">18</span>%</label>
-              <input type="range" id="qrSize" min="6" max="45" step="1" value="18">
+              <label class="f" for="qrSize">Ukuran badge: <span id="qrSizeVal">25</span>%</label>
+              <input type="range" id="qrSize" min="6" max="45" step="1" value="25">
             </div>
             <div class="field">
-              <label class="f" for="qrCapSize">Ukuran teks: <span id="qrCapSizeVal">16</span>%</label>
-              <input type="range" id="qrCapSize" min="8" max="30" step="1" value="16">
+              <label class="f" for="qrCapSize">Ukuran teks: <span id="qrCapSizeVal">10</span>%</label>
+              <input type="range" id="qrCapSize" min="8" max="30" step="1" value="10">
             </div>
           </div>
           <div class="field">
@@ -401,8 +402,8 @@ canvas.qrthumb{image-rendering:pixelated;border:1px solid var(--line);border-rad
             <div class="field">
               <label class="f" for="qrEcl">Koreksi galat QR</label>
               <select id="qrEcl">
-                <option value="L">L — QR paling kecil</option>
-                <option value="M" selected>M — seimbang</option>
+                <option value="L" selected>L — QR paling kecil (disarankan)</option>
+                <option value="M">M — seimbang</option>
                 <option value="Q">Q — tinggi</option>
                 <option value="H">H — tertinggi</option>
               </select>
@@ -413,7 +414,7 @@ canvas.qrthumb{image-rendering:pixelated;border:1px solid var(--line);border-rad
             </div>
           </div>
           <p style="font-size:13px;margin:0 0 10px">
-            <label><input type="checkbox" id="qrRotate" checked style="width:auto"> Putar badge 90°</label>
+            <label><input type="checkbox" id="qrRotate" style="width:auto"> Putar badge 90°</label>
             &nbsp;·&nbsp;
             <label><input type="checkbox" id="wmOn" style="width:auto"> Watermark "TERVERIFIKASI"</label>
             &nbsp;·&nbsp;
@@ -489,12 +490,12 @@ canvas.qrthumb{image-rendering:pixelated;border:1px solid var(--line);border-rad
               </select>
             </div>
             <div class="field" style="align-self:end;padding-bottom:6px">
-              <label style="font-size:13px"><input type="checkbox" id="qrShortKid" style="width:auto"> Key ID ringkas (6 karakter)</label>
+              <label style="font-size:13px"><input type="checkbox" id="qrShortKid" checked style="width:auto"> Key ID ringkas (6 karakter)</label>
             </div>
           </div>
           <div class="field" style="margin-top:10px">
-            <label style="font-size:13px"><input type="checkbox" id="sigEmbed" checked style="width:auto"> Sematkan tanda tangan ringkas (<span class="mono">ss</span>) di QR</label>
-            <p class="hint">Hapus centang untuk <b>QR lebih ringan</b> (modul lebih sedikit — jauh lebih mudah terbaca scanner pada cetak kecil/skala 25%). Konsekuensinya: verifikasi <i>offline</i> (file verifier) tidak dapat menampilkan ulang gambar tanda tangan; saat online/login PNG asli tetap tampil di hasil.</p>
+            <label style="font-size:13px"><input type="checkbox" id="sigEmbed" style="width:auto"> Sematkan tanda tangan ringkas (<span class="mono">ss</span>) di QR</label>
+            <p class="hint"><b>Default nonaktif</b> agar payload ±60% lebih ringan → QR tidak padat & terbaca scanner walau dicetak kecil. Centang <i>hanya</i> bila petugas memakai <b>verifier offline</b> dan perlu melihat gambar tanda tangan langsung dari isi QR; verifikasi online/login tetap menampilkan PNG asli dari server.</p>
           </div>
           <p class="hint" id="densityHint"></p>
           <div class="btnrow">
@@ -3187,6 +3188,7 @@ function lsDel(k){ try{ localStorage.removeItem(k); }catch(e){} }
 /* ---------------- Supabase: auth + database online ---------------- */
 const SB = (() => {
   const CFG_KEY = "kartusign.sb.config.v1", SES_KEY = "kartusign.sb.session.v1";
+
   let cfg = null, ses = null;
   try { cfg = JSON.parse(localStorage.getItem(CFG_KEY) || "null"); } catch(e){}
   try { ses = JSON.parse(localStorage.getItem(SES_KEY) || "null"); } catch(e){}
@@ -3302,6 +3304,32 @@ const SB = (() => {
     async nextCardId(){ return rest("rpc/next_card_id", { method: "POST", body: {} }); }
   };
 })();
+
+/* ---------------- auto-connect: build tertanam & parameter URL ----------------
+   Browser/perangkat baru punya localStorage kosong → biasanya harus mengisi
+   ulang koneksi. Dua jalan agar tidak perlu: (1) buka lewat link berparameter
+   ?sb_url=…&sb_key=…  (2) build dengan koneksi tertanam (supabase/config.json
+   atau env SB_URL/SB_KEY saat build.py). Anon key memang publik (dilindungi RLS). */
+const EMBEDDED_SB_URL = "https://vebyrboujvjhjnmmrnsr.supabase.co";
+const EMBEDDED_SB_KEY = "sb_publishable_RLJOKKW-8DrrCO3voEXF7A_a_NRelNE";
+function readSbParams(){
+  try{
+    const p = new URL(location.href).searchParams;
+    return { url: (p.get("sb_url") || p.get("sburl") || "").trim(), key: (p.get("sb_key") || p.get("sbkey") || "").trim() };
+  }catch(e){ return { url: "", key: "" }; }
+}
+async function autoConnectSb(){
+  if (SB.configured()) return false;
+  const prm = readSbParams();
+  const embOk = EMBEDDED_SB_URL && EMBEDDED_SB_KEY && EMBEDDED_SB_URL.indexOf("/*SB_") !== 0;
+  const src = (prm.url && prm.key) ? prm : (embOk ? { url: EMBEDDED_SB_URL, key: EMBEDDED_SB_KEY } : null);
+  if (!src) return false;
+  try{
+    await SB.setConfig(src.url, src.key);
+    if (prm.url){ try{ history.replaceState(null, "", location.pathname + location.hash); }catch(e){} }  // buang key dari address bar
+    return true;
+  }catch(e){ return false; }
+}
 function bytesToB64(u8){
   let str = ""; const CH = 0x8000;
   for (let i = 0; i < u8.length; i += CH) str += String.fromCharCode.apply(null, u8.subarray(i, i + CH));
@@ -3915,6 +3943,13 @@ async function verifySignatureOf(obj, publicKey){
 /* Payload QR: field opsional yang kosong dibuang agar QR tetap jarang (mudah dipindai).
    Saat dibaca, field dikembalikan menjadi string kosong sehingga string kanonik identik. */
 const OPTIONAL_FIELDS = ["cid","hld","apr","exp","rsn","sh","ss"];
+const FIXED_TEXT = {   // v2.6: teks tetap dikodekan jadi token pendek di payload (±90 karakter hemat)
+  "MP":  "Manager Purchasing",
+  "PS1": "Kartu ini dinyatakan Sah dan Asli di keluarkan oleh Purchasing Section"
+};
+const FIXED_REV = {}; for (const k in FIXED_TEXT) FIXED_REV[FIXED_TEXT[k]] = k;
+function tokFixed(v){ v = String(v == null ? "" : v).trim(); return FIXED_REV[v] || v; }
+function expandFixed(v){ return FIXED_TEXT[v] || (v || ""); }
 function compactPayload(o){
   const out = {};
   for (const k of Object.keys(o)){
@@ -3946,7 +3981,7 @@ async function signCard(metaOverride){
     sh = b64u(await crypto.subtle.digest("SHA-256", S.sigImg.bytes));
     if ($("sigEmbed") && $("sigEmbed").checked) ss = await buildCompactSig(S.sigImg.img, 96, 40);
   }
-  const base = { v:3, alg, kid:kidOut, ts, cid:meta.cid, hld:meta.hld, apr:meta.apr, exp:meta.exp, rsn:meta.rsn, h:imgHashB64, sh, ss };
+  const base = { v:3, alg, kid:kidOut, ts, cid:meta.cid, hld:meta.hld, apr:tokFixed(meta.apr), exp:meta.exp, rsn:tokFixed(meta.rsn), h:imgHashB64, sh, ss };
   const cs = canonicalString(base);
   const digest = await crypto.subtle.digest("SHA-256", enc.encode(cs));
 
@@ -4179,7 +4214,7 @@ function drawCard(target, opts){
 }
 function applyOrientation(){
   const potret = $("orient").value === "potret";
-  $("qrRotate").checked = potret;   // kartu potret: strip tanda tangan vertikal di tepi
+  if (!potret) $("qrRotate").checked = false;   // v2.7: rotasi murni pilihan user (default OFF); lanskap mematikannya
   render();
 }
 function render(){
@@ -4385,7 +4420,7 @@ function estimatePayload(alg, meta){
   const withSig = !!(S.sigImg && S.sigImg.bytes);
   const withEmbed = withSig && $("sigEmbed") && $("sigEmbed").checked;
   const shortKid = $("qrShortKid") && $("qrShortKid").checked;
-  const o = { v:3, alg, kid: shortKid ? "aaaaaa" : "aaaaaaaaaaaa", ts:1767225600, cid:m.cid, hld:m.hld, apr:m.apr, exp:m.exp, rsn:m.rsn,
+  const o = { v:3, alg, kid: shortKid ? "aaaaaa" : "aaaaaaaaaaaa", ts:1767225600, cid:m.cid, hld:m.hld, apr:tokFixed(m.apr), exp:m.exp, rsn:tokFixed(m.rsn),
               h:"A".repeat(43), s:"A".repeat(Math.ceil(sigLen*4/3)) };
   if (withSig) o.sh = "A".repeat(43);
   if (withEmbed) o.ss = JSON.stringify({ e:"deflate", w:96, h:40, d:"A".repeat(180) });
@@ -4511,9 +4546,9 @@ async function doVerify(){
   const metaRows = `
     <dt>ID kartu</dt><dd>${esc(obj.cid || "—")}</dd>
     <dt>Pemegang</dt><dd>${esc(obj.hld || "—")}</dd>
-    <dt>Ditetapkan</dt><dd>${esc(obj.apr || "—")}</dd>
+    <dt>Ditetapkan</dt><dd>${esc(expandFixed(obj.apr) || "—")}</dd>
     <dt>Berlaku s/d</dt><dd>${esc(obj.exp || "—")} ${expired ? '<span class="chip amber">masa berlaku habis</span>' : ""}</dd>
-    <dt>Keterangan</dt><dd>${esc(obj.rsn || "—")}</dd>
+    <dt>Keterangan</dt><dd>${esc(expandFixed(obj.rsn) || "—")}</dd>
     <dt>Waktu approval</dt><dd>${esc(fmtDate(obj.ts))}</dd>`;
   const hashLine = hashMatch === true ? '<p class="hint" style="margin:8px 0 0"><span class="chip green">gambar cocok</span> Hash gambar yang dimuat sama dengan saat penandatanganan.</p>'
                  : hashMatch === false ? '<p class="hint" style="margin:8px 0 0"><span class="chip red">gambar berbeda</span> Hash gambar yang dimuat TIDAK sama dengan saat penandatanganan.</p>'
@@ -4999,6 +5034,9 @@ function init(){
       applyRole(); renderKeyUI(); render();
       return;
     }
+    if (!SB.configured()){
+      if (await autoConnectSb()) toast("Server Supabase terhubung otomatis — silakan masuk.");
+    }
     if (!SB.configured()){ applyRole(); renderKeyUI(); render(); return; }
     if (SB.hasSession()){
       try{
@@ -5036,7 +5074,7 @@ function init(){
 window.KartuSign = {
   version: "1.0.0",
   state: S,
-  _debug: { render, renderSigInfo, encryptBlob, decryptBlob, importPrivateFromText, computeKid, makeQrCanvas, signCard, loadImageFile, computeBadge, applyOrientation, buildVerifierHtml, trustSources, verifySignatureOf, getSelfHtml: ()=>SELF_HTML, canonicalString, buildCompactSig, expandCompactSig, renderApproved, qrPrintAdvice,
+  _debug: { render, renderSigInfo, encryptBlob, decryptBlob, importPrivateFromText, computeKid, makeQrCanvas, signCard, loadImageFile, computeBadge, applyOrientation, buildVerifierHtml, trustSources, verifySignatureOf, getSelfHtml: ()=>SELF_HTML, canonicalString, buildCompactSig, expandCompactSig, renderApproved, qrPrintAdvice, expandFixed, tokFixed,
   SB, sbAddAccount, sbEnsureFirstManager, sbProfileOrThrow, doSignup, renderAccounts, rowToRec, bytesToB64, b64ToBytes, loadHistory, pushHistory, startPolling, stopPolling, sendHeartbeat, fetchNewCid,
     reqAll, reqGet, loadRequest, submitRequest, doLogin, logout, applyRole, bytesToImageRec, renderQueue, renderMyRequests, unlockKey, loadKeys, persistKeys, ensureKey, prepareApprovedCard, userDownload, imageFromURL },
   algos: ALG,

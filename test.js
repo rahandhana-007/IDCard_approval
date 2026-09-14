@@ -3,10 +3,20 @@ const path = require('path');
 const { JSDOM, VirtualConsole } = require('jsdom');
 const { webcrypto } = require('crypto');
 
-const html = fs.readFileSync(path.join(__dirname, 'KartuSign.html'), 'utf8');
+const htmlRaw = fs.readFileSync(path.join(__dirname, 'KartuSign.html'), 'utf8');
 
 const MOCK_BASE = 'https://mock.supabase.co';
 const APIKEY = 'mock-anon-key';
+
+/* Build sekarang bisa memuat koneksi Supabase asli tertanam (supabase/config.json).
+   Untuk uji: (a) `html` = dinetralkan → semua tes dasar mulai sebagai "browser baru";
+   (b) `htmlEmb` = koneksi tertanam PALSU (mock) → menguji jalur build tertanam di 19d. */
+const html = htmlRaw
+  .replace(/const EMBEDDED_SB_URL = "[^"]*";/, 'const EMBEDDED_SB_URL = "";')
+  .replace(/const EMBEDDED_SB_KEY = "[^"]*";/, 'const EMBEDDED_SB_KEY = "";');
+const htmlEmb = html
+  .replace('const EMBEDDED_SB_URL = "";', 'const EMBEDDED_SB_URL = "' + MOCK_BASE + '";')
+  .replace('const EMBEDDED_SB_KEY = "";', 'const EMBEDDED_SB_KEY = "' + APIKEY + '";');
 
 /* =====================================================================
    MOCK SUPABASE SERVER (Auth + PostgREST + RLS) — in-memory,
@@ -264,8 +274,8 @@ function installStubs(window, seed) {
   if (seed) seed(window);
 }
 const seedConfig = (w) => w.localStorage.setItem('kartusign.sb.config.v1', JSON.stringify({ url: MOCK_BASE, key: APIKEY }));
-function makeDom(h, seed) {
-  return new JSDOM(h, { runScripts: 'dangerously', pretendToBeVisual: true, url: 'https://localhost/', virtualConsole: vc, beforeParse: (w) => installStubs(w, seed) });
+function makeDom(h, seed, url) {
+  return new JSDOM(h, { runScripts: 'dangerously', pretendToBeVisual: true, url: url || 'https://localhost/', virtualConsole: vc, beforeParse: (w) => installStubs(w, seed) });
 }
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
@@ -444,7 +454,8 @@ const winA = domA.window, docA = winA.document;
   try { await D.loadImageFile(new winA.File(['x'], 'data.pdf', { type: 'application/pdf' }), 'card'); } catch (e) { rejMsg = e.message; }
   check('File non-gambar ditolak', /bukan gambar/i.test(rejMsg), rejMsg);
   check('Orientasi default = potret', $('orient').value === 'potret');
-  check('Potret: rotasi 90° default aktif', $('qrRotate').checked === true);
+  check('Potret: rotasi 90° default NONAKTIF (badge mendatar, mudah dipindai)', $('qrRotate').checked === false);
+  check('Default v2.7: badge 25%, teks 10%, ECL L, KeyID ringkas ON', $('qrSize').value === '25' && $('qrCapSize').value === '10' && $('qrEcl').value === 'L' && $('qrShortKid').checked === true);
   let fpOk = true;
   for (const pos of ['tl', 'tr', 'bl', 'br']) {
     $('qrPos').value = pos; $('qrPos').dispatchEvent(new winA.Event('change'));
@@ -456,7 +467,7 @@ const winA = domA.window, docA = winA.document;
     check('Geometri badge: QR + caption MUAT di dalam border abu-abu', q >= 40 && bg.h >= bg.pad + q + bg.capH && bg.w >= bg.pad * 2 + q, 'w=' + bg.w + ' q=' + q + ' h=' + bg.h); }
   $('qrPos').value = 'br'; $('qrPos').dispatchEvent(new winA.Event('change'));
   const b16 = D.computeBadge();
-  check('Caption ≥14% lebar badge', b16.capFs >= Math.round(b16.qrSize * 0.14), 'capFs=' + b16.capFs);
+  check('Caption mengikuti default 10% lebar badge', b16.capFs >= Math.round(b16.qrSize * 0.10), 'capFs=' + b16.capFs);
 
   /* ============ 9. PERANGKAT B: user "siti" login & mengajukan ============ */
   const domB = makeDom(html, seedConfig);
@@ -508,8 +519,9 @@ const winA = domA.window, docA = winA.document;
   check('A: status di server → disetujui + payload tersimpan', row1.status === 'disetujui' && row1.payload.length > 50 && row1.signed_by === 'boss');
   const pObj = JSON.parse(row1.payload);
   check('A: payload memakai data user (cid/hld/exp)', pObj.cid === 'KTR-REQ-001' && pObj.hld === 'Siti Aminah' && pObj.exp === '2027-12-31');
+  check('A: payload RAMPING ≥50% (token apr/rsn + ss default OFF, ≤350 karakter)', pObj.apr === 'MP' && pObj.rsn === 'PS1' && !('ss' in pObj) && row1.payload.length <= 350, 'len=' + row1.payload.length);
   check('A: payload VALID terhadap gambar yang dikirim user', (await KS.verify(pubPem, row1.payload, reqBytes)).valid === true);
-  check('A: tanda tangan manager terikat (sh) + ringkasannya di QR (ss)', typeof pObj.sh === 'string' && pObj.sh.length === 43 && typeof pObj.ss === 'string');
+  check('A: tanda tangan manager terikat (sh); ss default OFF agar QR ringan', typeof pObj.sh === 'string' && pObj.sh.length === 43 && !('ss' in pObj));
   check('A: PNG tanda tangan dilampirkan ke approval (_sig di server)', !!row1.card_data._sig && Buffer.from(row1.card_data._sig, 'base64').length === 611);
   check('A: nama penyetuju ikut dilampirkan (_sname)', row1.card_data._sname === 'Budi Bos Besar');
   { const qd = $('qrDraft'); check('A: draft barcode (QR) tampil di panel manager', qd && !qd.classList.contains('hide') && qd.width > 300 && $('qrDraftEmpty').classList.contains('hide') && $('payloadBox').value === row1.payload, 'w=' + (qd && qd.width)); }
@@ -652,7 +664,7 @@ const winA = domA.window, docA = winA.document;
   d2.getElementById('vPayload').value = row1.payload;
   d2.getElementById('btnVerify').click(); await sleep(900);
   check('Verifier: payload request siti → ✓ ASLI (kunci tertanam)', /✓ KARTU INI ASLI/.test(d2.getElementById('vResult').textContent), d2.getElementById('vResult').textContent.slice(0, 80).replace(/\s+/g, ' '));
-  check('Verifier offline: tanda tangan manager tampil di hasil (dari ss)', /<img/.test(d2.getElementById('vResult').innerHTML) && /Tanda tangan manager/.test(d2.getElementById('vResult').innerHTML));
+  check('Verifier: teks tetap diekspansi dari token (apr/rsn penuh tampil)', /Manager Purchasing/.test(d2.getElementById('vResult').textContent) && /Kartu ini dinyatakan Sah dan Asli/.test(d2.getElementById('vResult').textContent));
   const forg2 = JSON.parse(row1.payload); forg2.cid = 'KTR-PALSU-999';
   d2.getElementById('vPayload').value = JSON.stringify(forg2);
   d2.getElementById('btnVerify').click(); await sleep(700);
@@ -666,20 +678,20 @@ const winA = domA.window, docA = winA.document;
   await D.loadImageFile(new winA.File([sigBytes], 'ttd-budi.png', { type: 'image/png' }), 'sig');
   check('File tanda tangan PNG dimuat', !!KS.state.sigImg && KS.state.sigImg.bytes.length === 777);
   D.render(); D.renderSigInfo();
+  $('sigEmbed').checked = true;
   const sEmb = await D.signCard();
   const pEmb = JSON.parse(sEmb.payload);
-  check('Tanda tangan dilampirkan → sh + ss OTOMATIS di payload', pEmb.v === 3 && typeof pEmb.sh === 'string' && pEmb.sh.length === 43 && typeof pEmb.ss === 'string' && JSON.parse(pEmb.ss).w === 96);
+  check('Centang ss ON → sh + ss ada di payload', pEmb.v === 3 && typeof pEmb.sh === 'string' && pEmb.sh.length === 43 && typeof pEmb.ss === 'string' && JSON.parse(pEmb.ss).w === 96);
   const ssStr = await D.buildCompactSig(KS.state.sigImg.img, 96, 40);
   const urlBack = await D.expandCompactSig(ssStr);
   check('Round-trip compact sig → data URL PNG', typeof urlBack === 'string' && urlBack.startsWith('data:image/png'));
   check('Payload ber-ss VALID via API', (await KS.verify(pubPem, sEmb.payload, imgBytes)).valid === true);
   check('Panduan cetak (modul + mm) tampil di panel manager', /modul/.test($('densityHint').textContent) && /mm/.test($('densityHint').textContent), $('densityHint').textContent.slice(0, 90));
-  $('sigEmbed').checked = false;
+  $('sigEmbed').checked = false;   // default v2.6
   const sNo = await D.signCard();
   const pNo = JSON.parse(sNo.payload);
-  check('ss DICABUT → payload ringan tanpa ss, tetap VALID', !('ss' in pNo) && 'sh' in pNo && (await KS.verify(pubPem, sNo.payload, imgBytes)).valid === true, 'len=' + sNo.payload.length);
+  check('ss OFF (default) → payload ringan tanpa ss, tetap VALID', !('ss' in pNo) && 'sh' in pNo && (await KS.verify(pubPem, sNo.payload, imgBytes)).valid === true, 'len=' + sNo.payload.length);
   check('QR tanpa ss → modul lebih sedikit (mudah dipindai kecil)', D.qrPrintAdvice(sNo.payload).n < D.qrPrintAdvice(sEmb.payload).n, D.qrPrintAdvice(sNo.payload).n + ' vs ' + D.qrPrintAdvice(sEmb.payload).n);
-  $('sigEmbed').checked = true;
   const tamSh = JSON.parse(sEmb.payload); tamSh.sh = 'B'.repeat(43);
   check('sh diubah → TIDAK VALID', (await KS.verify(pubPem, JSON.stringify(tamSh), imgBytes)).valid === false);
   KS.state.sigImg = null;
@@ -695,7 +707,7 @@ const winA = domA.window, docA = winA.document;
   check('A: permintaan ke-3 muncul di antrean', !!proc3);
   proc3.click(); await sleep(900);
   $('btnSign').click(); await sleep(1600);
-  check('A: approval menyimpan PNG tanda tangan (_sig) + ss di payload', row3.status === 'disetujui' && !!(row3.card_data || {})._sig && Buffer.from(row3.card_data._sig, 'base64').length === 777 && 'ss' in JSON.parse(row3.payload));
+  check('A: approval menyimpan PNG tanda tangan (_sig); payload ramping tanpa ss', row3.status === 'disetujui' && !!(row3.card_data || {})._sig && Buffer.from(row3.card_data._sig, 'base64').length === 777 && !('ss' in JSON.parse(row3.payload)));
   await DB.renderMyRequests();
   const dl3 = [...docB.querySelectorAll('#myReqBody [data-dl]')].find(b => b.dataset.dl === row3.id);
   dl3.click(); await sleep(1100);
@@ -727,7 +739,7 @@ const winA = domA.window, docA = winA.document;
   const pC = JSON.parse(sCompact.payload);
   check('Field opsional kosong dibuang dari payload', !('rsn' in pC) && !('exp' in pC), Object.keys(pC).join(','));
   check('Payload ringkas tetap VALID', (await KS.verify(pubPem, sCompact.payload, imgBytes)).valid === true);
-  $('qrShortKid').checked = true;
+  $('qrShortKid').checked = true;   // sudah default ON sejak v2.7
   const sShort = await D.signCard();
   check('Key ID ringkas = 6 karakter + tetap VALID', JSON.parse(sShort.payload).kid.length === 6 && (await KS.verify(pubPem, sShort.payload, imgBytes)).valid === true);
   $('qrShortKid').checked = false;
@@ -741,6 +753,27 @@ const winA = domA.window, docA = winA.document;
   winA.__promptQueue.push('X');
   $('btnChangeName').click(); await sleep(300);
   check('A: nama < 2 karakter ditolak', KS.state.session.fullName === 'Budi Bos Baru' && backend.profiles.find(p => p.username === 'boss').full_name === 'Budi Bos Baru');
+
+  /* ============ 19c. BROWSER BARU: auto-connect lewat link berparameter ============ */
+  const domE = makeDom(html, null, 'https://localhost/?sb_url=' + encodeURIComponent(MOCK_BASE) + '&sb_key=' + encodeURIComponent(APIKEY));
+  const winE = domE.window;
+  await sleep(800);
+  const DE = winE.KartuSign._debug;
+  check('Browser baru + link berparameter → terhubung otomatis (panel setup tertutup)', panel(winE, 'setup').classList.contains('hide') && !panel(winE, 'login').classList.contains('hide'));
+  check('Parameter tersimpan jadi config server', DE.SB.cfg && DE.SB.cfg.url === MOCK_BASE, DE.SB.cfg && DE.SB.cfg.url);
+  check('Parameter dibuang dari address bar setelah dipakai', !/sb_key=/.test(winE.location.search), winE.location.search);
+  DE.stopPolling();
+
+  /* ============ 19d. BUILD TERTANAM: koneksi Supabase sudah ada di dalam file ============ */
+  const domF = makeDom(htmlEmb, null);
+  const winF = domF.window;
+  await sleep(800);
+  const DF = winF.KartuSign._debug;
+  check('Build tertanam → terhubung otomatis tanpa parameter (setup tertutup, login tampil)', panel(winF, 'setup').classList.contains('hide') && !panel(winF, 'login').classList.contains('hide'));
+  const cfgF = JSON.parse(winF.localStorage.getItem('kartusign.sb.config.v1') || 'null');
+  check('Build tertanam → config dari file tersimpan di localStorage', !!cfgF && cfgF.url === MOCK_BASE && cfgF.key === APIKEY, cfgF && cfgF.url);
+  check('Build tertanam → address bar tetap bersih', winF.location.search === '', winF.location.search);
+  DF.stopPolling();
 
   /* ============ 20. LOGOUT membersihkan state lokal ============ */
   await D.logout(); await sleep(300);
