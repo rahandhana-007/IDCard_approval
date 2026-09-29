@@ -224,7 +224,7 @@ Bila ruang sempit: pilih ECL **L** dan aktifkan **Key ID ringkas**.
 | `supabase/schema.sql` | **Skema database Supabase** (tabel + trigger + kebijakan RLS) — jalankan di SQL Editor |
 | `supabase/keep-alive.yml` | Template cron **GitHub Actions** — heartbeat anti-pause tiap 3 hari (lihat *Menjaga Supabase tetap aktif*) |
 | `deploy/` | Folder siap deploy Netlify (`index.html` + `netlify.toml` + contoh kartu) |
-| `test.js` | Uji end-to-end otomatis (**171 kasus**) memakai jsdom + **mock server Supabase** (Auth/PostgREST/RLS), termasuk alur lintas-perangkat user→manager dan build+uji `IDCardManagement-Verifier.html` |
+| `test.js` | Uji end-to-end otomatis (**174 kasus**) memakai jsdom + **mock server Supabase** (Auth/PostgREST/RLS), termasuk alur lintas-perangkat user→manager dan build+uji `IDCardManagement-Verifier.html` |
 | `qrtest.js` | Uji round-trip QR: payload → matriks → decode |
 | `make_sample.py` | Pembangkit `contoh-kartu.png` |
 
@@ -320,6 +320,13 @@ Config koneksi (URL + anon key) tersimpan di **localStorage → per browser & pe
 Catatan: **login tetap perlu sekali per browser** — token sesi adalah kredensial dan sengaja tidak dibagi antar browser demi keamanan.
 
 ## Catatan rilis
+
+**v2.9 (revisi atas masukan pengguna — UI bersih + tanda tangan manager permanen di server)**
+
+- UI dibersihkan sesuai permintaan: badge header **"Digital Signature · QR"** dihapus; chip **"Web Crypto aktif · kriptografi lokal"** dihapus (banner peringatan merah tetap muncul bila browser tidak mendukung Web Crypto); keterangan **"Default nonaktif agar payload ±60% lebih ringan…"** di bawah checkbox *ss* dihapus; info **"Perkiraan kepadatan QR"** di panel pengesahan manager dihapus. Verifier tetap menampilkan badge "Mode Verifier · kunci tertanam" (dibuat otomatis saat build verifier).
+- **Tanda tangan PNG manager kini tersimpan permanen di database**: sekali unggah → tersimpan di kolom `profiles.sig_png` → otomatis dimuat ulang setiap kali manager login, di browser/perangkat mana pun — tidak perlu unggah ulang.
+- ⚠️ **Wajib jalankan ulang `supabase/schema.sql`** di Dashboard Supabase → SQL Editor (menambah kolom `sig_png`; aman dijalankan berulang). Bila kolom belum ada, aplikasi tetap jalan tetapi muncul toast peringatan saat mengunggah tanda tangan.
+- Uji otomatis: 171 → **174 kasus** (sig PNG tersimpan otomatis saat diunggah; login manager di browser baru memulihkan sig dari server; pratinjau tampil tanpa unggah ulang).
 
 **v2.8 (revisi atas masukan pengguna — tidak isi ulang koneksi tiap ganti browser)**
 - **Auto-connect**: aplikasi membaca parameter URL `?sb_url=…&sb_key=…` atau koneksi **tertanam saat build** (`supabase/config.json` / env `SB_URL`+`SB_KEY` lewat `build.py`) → panel setup dilewati otomatis; parameter dibuang dari address bar setelah tersimpan.

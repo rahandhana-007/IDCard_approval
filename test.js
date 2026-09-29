@@ -292,7 +292,7 @@ const winA = domA.window, docA = winA.document;
   check('Hook API KartuSign tersedia', !!KS && typeof KS.verify === 'function');
   check('Library QR termuat', typeof winA.qrcode === 'function');
   check('init() berjalan tanpa error', errors.length === 0, errors.slice(0, 3).join(' || '));
-  check('Chip crypto aktif', /Web Crypto aktif/.test($('chipCrypto').textContent));
+  check('Chip Web Crypto dihapus (permintaan user)', !$('chipCrypto'));
 
   /* ============ 1. SETUP SERVER (panel Supabase) ============ */
   const panel = (w, n) => w.document.querySelector('[data-panel="' + n + '"]');
@@ -515,6 +515,8 @@ const winA = domA.window, docA = winA.document;
   await D.loadImageFile(new winA.File([sigBytesM], 'ttd-manager.png', { type: 'image/png' }), 'sig');
   check('A: tanda tangan manager (PNG) dimuat utk dilampirkan', !!KS.state.sigImg && KS.state.sigImg.bytes.length === 611);
   check('A: pratinjau unggah tampil (checkerboard = transparansi utuh)', !$('sigPrevBox').classList.contains('hide') && /^blob:|data:/.test($('sigPrev').src));
+  await sleep(400);
+  check('A: sig PNG sekali unggah → tersimpan otomatis di server', typeof (backend.profiles.find(p => p.username === 'boss') || {}).sig_png === 'string' && Buffer.from(backend.profiles.find(p => p.username === 'boss').sig_png, 'base64').length === 611);
   $('btnSign').click(); await sleep(1800);
   check('A: status di server → disetujui + payload tersimpan', row1.status === 'disetujui' && row1.payload.length > 50 && row1.signed_by === 'boss');
   const pObj = JSON.parse(row1.payload);
@@ -686,7 +688,6 @@ const winA = domA.window, docA = winA.document;
   const urlBack = await D.expandCompactSig(ssStr);
   check('Round-trip compact sig → data URL PNG', typeof urlBack === 'string' && urlBack.startsWith('data:image/png'));
   check('Payload ber-ss VALID via API', (await KS.verify(pubPem, sEmb.payload, imgBytes)).valid === true);
-  check('Panduan cetak (modul + mm) tampil di panel manager', /modul/.test($('densityHint').textContent) && /mm/.test($('densityHint').textContent), $('densityHint').textContent.slice(0, 90));
   $('sigEmbed').checked = false;   // default v2.6
   const sNo = await D.signCard();
   const pNo = JSON.parse(sNo.payload);
@@ -774,6 +775,22 @@ const winA = domA.window, docA = winA.document;
   check('Build tertanam → config dari file tersimpan di localStorage', !!cfgF && cfgF.url === MOCK_BASE && cfgF.key === APIKEY, cfgF && cfgF.url);
   check('Build tertanam → address bar tetap bersih', winF.location.search === '', winF.location.search);
   DF.stopPolling();
+
+  /* ============ 19e. TANDA TANGAN MANAGER TERSIMPAN DI SERVER (v2.9) ============ */
+  const bossRow = backend.profiles.find(p => p.username === 'boss');
+  check('sig_png manager tersimpan permanen di profil server', typeof bossRow.sig_png === 'string' && bossRow.sig_png.length > 100);
+  const domG = makeDom(html, seedConfig);
+  const winG = domG.window;
+  await sleep(400);
+  winG.document.getElementById('liUser').value = 'boss';
+  winG.document.getElementById('liPass').value = 'newpass123';   // password boss sudah diganti di seksi 14
+  winG.document.getElementById('btnLogin').click();
+  await sleep(2500);
+  const KSG = winG.KartuSign;
+  const expLen = Buffer.from(bossRow.sig_png, 'base64').length;
+  check('Browser baru: login manager → sig PNG otomatis dipulihkan dari server', !!KSG.state.sigImg && KSG.state.sigImg.bytes.length === expLen, KSG.state.sigImg ? KSG.state.sigImg.bytes.length : 'null');
+  check('Pratinjau tanda tangan langsung tampil tanpa unggah ulang', !winG.document.getElementById('sigPrevBox').classList.contains('hide') && /^(data:|blob:)/.test(winG.document.getElementById('sigPrev').src));
+  KSG._debug.stopPolling();
 
   /* ============ 20. LOGOUT membersihkan state lokal ============ */
   await D.logout(); await sleep(300);

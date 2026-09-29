@@ -3,7 +3,7 @@
 -- Jalankan SELURUH isi file ini di Supabase Dashboard → SQL Editor → Run.
 --
 -- Tabel:
---   profiles      : username + nama lengkap + role (user/manager) + status aktif, terhubung ke auth.users
+--   profiles      : username + nama lengkap + role (user/manager) + status aktif + tanda tangan PNG manager (sig_png), terhubung ke auth.users
 --   signing_keys  : kunci tanda tangan (privat disimpan TERENKRIPSI frasa sandi)
 --   requests      : antrean pengajuan kartu (user → manager) + hasil approval
 --   heartbeat     : keep-alive anti-pause (free tier) — ditulis aplikasi/cron tiap ±3 hari
@@ -26,6 +26,10 @@ create table if not exists public.profiles (
 
 -- v2.3 (aman dijalankan ulang): tambahkan kolom nama lengkap bila skema lama
 alter table public.profiles add column if not exists full_name text not null default '';
+
+-- v2.9: tanda tangan PNG manager (base64) — SEKALI unggah tersimpan permanen di
+-- server, otomatis dimuat ulang setiap login manager (lintas browser/perangkat).
+alter table public.profiles add column if not exists sig_png text;
 
 alter table public.profiles enable row level security;
 
