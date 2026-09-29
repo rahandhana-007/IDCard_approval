@@ -8,6 +8,7 @@
 --   requests      : antrean pengajuan kartu (user → manager) + hasil approval
 --   heartbeat     : keep-alive anti-pause (free tier) — ditulis aplikasi/cron tiap ±3 hari
 --   card_seq      : counter nomor kartu otomatis (PUR-tahun-bulan-NNNN) per bulan
+--   app_settings  : pengaturan bersama lintas pengguna (v2.20: format Nomor/ID kartu)
 --
 -- Prasyarat: matikan "Confirm email" di
 --   Authentication → Providers → Email → Confirm email = OFF
@@ -236,3 +237,30 @@ create trigger requests_set_updated_at
 
 -- Selesai. Uji cepat di SQL Editor:
 --   select * from public.profiles;
+
+-- ---------- app_settings (v2.20: pengaturan bersama, mis. format Nomor/ID kartu) ----------
+-- Baris key='cid_format' diisi aplikasi lewat tombol "⚙ Setting No ID".
+create table if not exists public.app_settings (
+  key        text primary key,
+  value      text not null default '',
+  updated_at timestamptz not null default now()
+);
+
+alter table public.app_settings enable row level security;
+
+drop policy if exists settings_select on public.app_settings;
+create policy settings_select on public.app_settings
+  for select to authenticated using (true);
+
+drop policy if exists settings_insert on public.app_settings;
+create policy settings_insert on public.app_settings
+  for insert to authenticated with check (true);
+
+drop policy if exists settings_update on public.app_settings;
+create policy settings_update on public.app_settings
+  for update to authenticated using (true) with check (true);
+
+drop trigger if exists app_settings_set_updated_at on public.app_settings;
+create trigger app_settings_set_updated_at
+  before update on public.app_settings
+  for each row execute function public.set_updated_at();

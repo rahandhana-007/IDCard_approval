@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ID Card Management — Purchasing - Raw Material Section</title>
+<title>ID Card Management v2.30 — Purchasing - Raw Material Section</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2064%2064'%3E%3Cdefs%3E%3ClinearGradient%20id='g'%20x1='0'%20y1='0'%20x2='1'%20y2='1'%3E%3Cstop%20offset='0'%20stop-color='%234f46e5'/%3E%3Cstop%20offset='1'%20stop-color='%236d28d9'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect%20x='4'%20y='12'%20width='56'%20height='40'%20rx='7'%20fill='url(%23g)'/%3E%3Crect%20x='4'%20y='20'%20width='56'%20height='8'%20fill='%231e1b4b'/%3E%3Crect%20x='10'%20y='35'%20width='13'%20height='10'%20rx='2.5'%20fill='%23fbbf24'/%3E%3Crect%20x='29'%20y='37'%20width='25'%20height='3.5'%20rx='1.75'%20fill='%23c7d2fe'/%3E%3Crect%20x='29'%20y='44'%20width='16'%20height='3.5'%20rx='1.75'%20fill='%23a5b4fc'/%3E%3C/svg%3E">
 <style>
 /*QRGEN_CSS*/
@@ -159,7 +159,7 @@ canvas.qrthumb{image-rendering:pixelated;border:1px solid var(--line);border-rad
       </svg>
     </div>
     <div class="grow">
-      <h1>ID Card Management</h1>
+      <h1>ID Card Management v2.30</h1>
       <p class="sub">Purchasing - Raw Material Section | ID Card Vendor Representative Approval</p>
     </div>
     <span class="chip gray hide" id="chipSession" title="Sesi aktif"></span>
@@ -303,6 +303,17 @@ canvas.qrthumb{image-rendering:pixelated;border:1px solid var(--line);border-rad
               <input type="text" id="mCardId" placeholder="PUR-2026-09-0001" autocomplete="off" readonly style="flex:1 1 auto;min-width:180px">
               <button class="btn" id="btnNewCid" type="button" title="Ambil nomor baru dari server" style="flex:0 0 auto">↻ Nomor baru</button>
               <button class="btn" id="btnResetCid" type="button" title="Reset form pengajuan ke pengaturan default — nomor kartu diminta ulang dari server" style="flex:0 0 auto">↺ Reset</button>
+              <button class="btn" id="btnCidFmt" type="button" title="Ubah format Nomor / ID kartu" style="flex:0 0 auto">⚙ Setting No ID</button>
+            </div>
+            <div id="cidFmtBox" class="hide" style="margin-top:10px;padding:12px;border:1px solid var(--line2);border-radius:12px;background:#f8fafc">
+              <label class="f" for="cidFmtInput">Format Nomor / ID kartu</label>
+              <div class="flex" style="gap:8px;flex-wrap:wrap;align-items:stretch">
+                <input type="text" id="cidFmtInput" placeholder="PUR-{tahun}-{bulan}-{nomor}" autocomplete="off" style="flex:1 1 auto;min-width:180px">
+                <button class="btn primary" id="btnCidFmtSave" type="button" style="flex:0 0 auto">Simpan</button>
+                <button class="btn" id="btnCidFmtCancel" type="button" style="flex:0 0 auto">Batal</button>
+              </div>
+              <p class="hint" id="cidFmtPreview" style="margin-top:8px"></p>
+              <p class="hint">Token: <span class="mono">{tahun}</span> tahun 4 digit · <span class="mono">{bulan}</span> bulan 2 digit · <span class="mono">{nomor}</span> nomor urut 4 digit (increment otomatis dari server — <b>wajib ada</b> agar nomor tetap unik). Teks bebas: huruf, angka, titik, strip, garis miring, underscore. Format disimpan di server → berlaku untuk semua pengguna &amp; perangkat.</p>
             </div>
           </div>
           <div class="row c2">
@@ -873,6 +884,7 @@ const S = {
   card: { file:null, name:"", img:null, bytes:null, w:0, h:0 },
   verifyImg: { file:null, bytes:null, name:"" },
   sigImg: null,      // {file,name,img,bytes,w,h}
+  cidFmt: "",        // v2.20: template format Nomor/ID kartu (token {tahun}/{bulan}/{nomor})
   verifySig: null,   // bytes file tanda tangan untuk cek hash di verifikasi
   sig: null,                          // {payload(string), obj, sigB64, hashB64, ts}
   session: null,                      // {username, role:'user'|'manager'|'verifier', ts}
@@ -882,6 +894,7 @@ const S = {
   history: []
 };
 
+const APP_VERSION = "v2.30";   // ← WAJIB naik (+0.10) setiap revisi; ubah juga <title> & <h1>
 const LS = { hist:"kartusign.history.v1", pub:"kartusign.pub.v1", meta:"kartusign.meta.v1", acc:"kartusign.accounts.v1", sess:"kartusign.session.v1" };
 function lsGet(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }
 function lsSet(k,v){ try{ localStorage.setItem(k,v); }catch(e){} }
@@ -1002,7 +1015,9 @@ const SB = (() => {
     async updateRequest(id, patch){ return rest("requests?id=eq." + id + "&select=*", { method: "PATCH", body: patch, prefer: "return=representation" }); },
     async deleteRequest(id){ return rest("requests?id=eq." + id, { method: "DELETE" }); },
     async heartbeat(note){ return rest("heartbeat", { method: "POST", body: { id: "app", last_beat: new Date().toISOString(), note: note || "keep-alive aplikasi" }, prefer: "resolution=merge-duplicates" }); },
-    async nextCardId(){ return rest("rpc/next_card_id", { method: "POST", body: {} }); }
+    async nextCardId(){ return rest("rpc/next_card_id", { method: "POST", body: {} }); },
+    async getSetting(key){ const rows = await rest("app_settings?key=eq." + encodeURIComponent(key) + "&select=value"); return (rows && rows[0] && rows[0].value) || ""; },
+    async saveSetting(key, value){ return rest("app_settings", { method: "POST", body: { key: key, value: String(value) }, prefer: "resolution=merge-duplicates" }); }
   };
 })();
 
@@ -1281,13 +1296,55 @@ async function sendHeartbeat(force){
    Diambil dari RPC server `next_card_id()` agar unik lintas pengguna.
    Dipanggil saat tab Pengajuan dibuka (bila kolom masih kosong), sesudah
    pengajuan terkirim, atau manual lewat tombol "↻ Nomor baru".            */
+/* ---------------- v2.20: format Nomor/ID kartu dapat diubah ----------------
+   RPC server tetap menerbitkan 'PUR-YYYY-MM-NNNN' (counter unik per bulan);
+   klien merender ulang sesuai template token {tahun}/{bulan}/{nomor}.
+   Template disimpan di app_settings (berlaku semua user) + localStorage (cadangan). */
+const DEFAULT_CID_FMT = "PUR-{tahun}-{bulan}-{nomor}";
+function validateCidFormat(tpl){
+  tpl = String(tpl || "").trim();
+  if (!tpl) return "Format belum diisi.";
+  if (tpl.length > 60) return "Format terlalu panjang (maks. 60 karakter).";
+  if (!/\{nomor\}/.test(tpl)) return "Format harus memuat token {nomor} agar setiap kartu unik.";
+  const sisa = tpl.replace(/\{tahun\}|\{bulan\}|\{nomor\}/g, "");
+  if (/[^A-Za-z0-9._\-_/]/.test(sisa)) return "Karakter tidak diizinkan — gunakan huruf/angka/titik/strip/garis miring/underscore dan token {tahun}/{bulan}/{nomor}.";
+  return "";
+}
+function applyCidFormat(rawId){
+  const m = /^PUR-(\d{4})-(\d{2})-(\d{4})$/.exec(String(rawId || "").trim());
+  if (!m) return "";
+  const tpl = String(S.cidFmt || DEFAULT_CID_FMT);
+  return tpl.replace(/\{tahun\}/g, m[1]).replace(/\{bulan\}/g, m[2]).replace(/\{nomor\}/g, m[3]).trim();
+}
+async function loadCidFormat(){
+  let tpl = "";
+  try{ if (SB.configured() && S.session) tpl = await SB.getSetting("cid_format"); }catch(e){}
+  if (!tpl){ try{ tpl = localStorage.getItem("kartusign.cidfmt.v1") || ""; }catch(e){} }
+  S.cidFmt = (tpl && validateCidFormat(tpl) === "") ? tpl : DEFAULT_CID_FMT;
+  return S.cidFmt;
+}
+function updateCidFmtPreview(){
+  const pv = $("cidFmtPreview"); if (!pv) return;
+  const tpl = $("cidFmtInput").value.trim();
+  const err = validateCidFormat(tpl);
+  if (err){ pv.innerHTML = '<span style="color:var(--err)">' + esc(err) + "</span>"; return; }
+  const d = new Date();
+  const contoh = tpl.replace(/\{tahun\}/g, String(d.getFullYear()))
+                    .replace(/\{bulan\}/g, String(d.getMonth() + 1).padStart(2, "0"))
+                    .replace(/\{nomor\}/g, "0001");
+  pv.innerHTML = 'Contoh hasil: <b class="mono">' + esc(contoh) + "</b>";
+}
 async function fetchNewCid(force){
   try{
     if (!SB.configured() || !S.session || S.session.role === "verifier") return "";
     const el = $("mCardId"); if (!el) return "";
     if (!force && el.value.trim()) return el.value.trim();
+    if (!S.cidFmt) await loadCidFormat();
     const id = await SB.nextCardId();
-    if (typeof id === "string" && /^PUR-\d{4}-\d{2}-\d{4}$/.test(id.trim())) el.value = id.trim();
+    if (typeof id === "string" && id.trim()){
+      const fid = applyCidFormat(id.trim());   // v2.20: render sesuai format pengguna
+      if (fid) el.value = fid;
+    }
     return el.value.trim();
   }catch(e){ return ""; }
 }
@@ -2426,7 +2483,7 @@ function init(){
     b.addEventListener("click", ()=>switchTab(b.dataset.tab));
   });
   if (IS_VERIFIER){
-    document.title = "ID Card Management Verifier — Periksa Keaslian Kartu";
+    document.title = "ID Card Management " + APP_VERSION + " Verifier — Periksa Keaslian Kartu";
     let b = document.querySelector(".brand .badge");
     if (!b){ const h1 = document.querySelector(".brand h1"); if (h1){ b = document.createElement("span"); b.className = "badge"; h1.appendChild(b); } }
     if (b) b.textContent = "Mode Verifier · kunci tertanam";
@@ -2452,6 +2509,29 @@ function init(){
     btn.disabled = false;
     if (id) toast("Form direset ke default — nomor kartu baru: " + id);
     else { $("mCardId").value = ""; toast("Form direset ke default — nomor kartu akan diminta ulang dari server saat login.", true); }
+  });
+  $("btnCidFmt").addEventListener("click", ()=>{
+    const box = $("cidFmtBox"); if (!box) return;
+    $("cidFmtInput").value = S.cidFmt || DEFAULT_CID_FMT;
+    box.classList.remove("hide");
+    updateCidFmtPreview();
+  });
+  $("cidFmtInput").addEventListener("input", updateCidFmtPreview);
+  $("btnCidFmtCancel").addEventListener("click", ()=>{ const box = $("cidFmtBox"); if (box) box.classList.add("hide"); });
+  $("btnCidFmtSave").addEventListener("click", async ()=>{
+    const tpl = $("cidFmtInput").value.trim();
+    const err = validateCidFormat(tpl);
+    if (err){ toast(err, true); return; }
+    const btn = $("btnCidFmtSave"); btn.disabled = true;
+    let savedServer = false;
+    try{ if (SB.configured() && S.session){ await SB.saveSetting("cid_format", tpl); savedServer = true; } }catch(e){}
+    try{ localStorage.setItem("kartusign.cidfmt.v1", tpl); }catch(e){}
+    S.cidFmt = tpl;
+    const box = $("cidFmtBox"); if (box) box.classList.add("hide");
+    btn.disabled = false;
+    const id = await fetchNewCid(true);
+    if (savedServer) toast("Format Nomor/ID disimpan di server — berlaku untuk semua pengguna." + (id ? " Contoh: " + id : ""));
+    else toast("Format disimpan di browser ini saja — server menolak (jalankan ulang supabase/schema.sql untuk tabel app_settings).", true);
   });
   $("btnUserDlPng").addEventListener("click", ()=>userDownload("png"));
   $("btnUserDlJpg").addEventListener("click", ()=>userDownload("jpg"));
@@ -2810,10 +2890,10 @@ function init(){
      KartuSign.verify(pubPem,payload,imgBytes) -> cek keaslian tanpa UI
 ---------------------------------------------------------------- */
 window.KartuSign = {
-  version: "1.0.0",
+  version: APP_VERSION.replace(/^v/, ""),
   state: S,
   _debug: { render, renderSigInfo, encryptBlob, decryptBlob, importPrivateFromText, computeKid, makeQrCanvas, signCard, loadImageFile, computeBadge, applyOrientation, buildVerifierHtml, trustSources, verifySignatureOf, getSelfHtml: ()=>SELF_HTML, canonicalString, buildCompactSig, expandCompactSig, renderApproved, qrPrintAdvice, expandFixed, tokFixed,
-  SB, sbAddAccount, sbEnsureFirstManager, sbProfileOrThrow, saveSigToServer, restoreSigFromProfile, doSignup, renderAccounts, rowToRec, bytesToB64, b64ToBytes, loadHistory, pushHistory, startPolling, stopPolling, sendHeartbeat, fetchNewCid,
+  SB, sbAddAccount, sbEnsureFirstManager, sbProfileOrThrow, saveSigToServer, restoreSigFromProfile, loadCidFormat, applyCidFormat, validateCidFormat, doSignup, renderAccounts, rowToRec, bytesToB64, b64ToBytes, loadHistory, pushHistory, startPolling, stopPolling, sendHeartbeat, fetchNewCid,
     reqAll, reqGet, loadRequest, submitRequest, doLogin, logout, applyRole, bytesToImageRec, renderQueue, renderMyRequests, unlockKey, loadKeys, persistKeys, ensureKey, prepareApprovedCard, userDownload, imageFromURL },
   algos: ALG,
   utils: { b64u, b64uToBytes, hexShort, canonicalString, derToPem, pemToDer },

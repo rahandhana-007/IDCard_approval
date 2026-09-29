@@ -28,6 +28,7 @@ const backend = {
   refresh: new Map(),   // refresh_token -> uid
   profiles: [],         // {id,username,role,active,created_at}
   heartbeat: [],        // {id,last_beat,note} — keep-alive
+  app_settings: [],     // {key,value,updated_at} — v2.20: format Nomor/ID dkk.
   cardSeq: {},          // 'YYYY-MM' → nomor kartu terakhir
   signing_keys: [],     // {key_id,alg,kid,pubkey_pem,priv_enc,locked,created_by,created_at}
   requests: [],         // {id,created_by,by_name,card_name,card_data,image_b64,image_mime,status,note,payload,kid,signed_by,created_at,updated_at}
@@ -160,7 +161,7 @@ async function sbFetch(urlStr, opts) {
   }
   const { table, params } = parseQuery(url);
   const method = (opts.method || 'GET').toUpperCase();
-  if (!['profiles', 'signing_keys', 'requests', 'heartbeat'].includes(table)) return resp(404, { message: 'table not found: ' + table });
+  if (!['profiles', 'signing_keys', 'requests', 'heartbeat', 'app_settings'].includes(table)) return resp(404, { message: 'table not found: ' + table });
   const rows = backend[table];
 
   if (table === 'heartbeat') {   // keep-alive: boleh anonim (RLS asli mengizinkan anon+authenticated)
@@ -182,6 +183,15 @@ async function sbFetch(urlStr, opts) {
   if (method === 'POST') {
     if (!a) return RLS_FAIL(table);
     const prefer = headers['prefer'] || '';
+    if (table === 'app_settings') {   // v2.20: upsert key/value (RLS: authenticated)
+      if (!a) return RLS_FAIL(table);
+      const i = rows.findIndex(r => r.key === body.key);
+      const rec = { updated_at: nowIso(), ...body };
+      if (i >= 0 && prefer.includes('merge-duplicates')) rows[i] = { ...rows[i], ...rec };
+      else if (i >= 0) return resp(409, { message: 'duplicate key value violates unique constraint' });
+      else rows.push(rec);
+      return resp(201, prefer.includes('return=representation') ? [rows.find(r => r.key === body.key)] : null);
+    }
     if (table === 'profiles') {
       if (body.id !== a.uid) return RLS_FAIL(table);
       rows.push({ role: 'user', active: true, created_at: nowIso(), ...body });
@@ -294,6 +304,7 @@ const winA = domA.window, docA = winA.document;
   check('init() berjalan tanpa error', errors.length === 0, errors.slice(0, 3).join(' || '));
   check('Chip Web Crypto dihapus (permintaan user)', !$('chipCrypto'));
   check('Favicon kartu tertanam di file (pengganti logo Netlify)', /<link rel="icon" href="data:image\/svg\+xml/.test(html));
+  check('Judul & header memuat versi aplikasi', /ID Card Management v\d+\.\d+/.test(docA.title) && /v\d+\.\d+/.test(docA.querySelector('.brand h1').textContent), docA.title);
 
   /* ============ 1. SETUP SERVER (panel Supabase) ============ */
   const panel = (w, n) => w.document.querySelector('[data-panel="' + n + '"]');
@@ -457,6 +468,7 @@ const winA = domA.window, docA = winA.document;
   check('Orientasi default = potret', $('orient').value === 'potret');
   check('Potret: rotasi 90° default NONAKTIF (badge mendatar, mudah dipindai)', $('qrRotate').checked === false);
   check('Default v2.7: badge 25%, teks 10%, ECL L, KeyID ringkas ON', $('qrSize').value === '25' && $('qrCapSize').value === '10' && $('qrEcl').value === 'L' && $('qrShortKid').checked === true);
+  check('Default v2.30: "Sematkan tanda tangan ringkas (ss)" OFF (QR ringan)', $('sigEmbed').checked === false);
   let fpOk = true;
   for (const pos of ['tl', 'tr', 'bl', 'br']) {
     $('qrPos').value = pos; $('qrPos').dispatchEvent(new winA.Event('change'));
@@ -527,7 +539,7 @@ const winA = domA.window, docA = winA.document;
   const pObj = JSON.parse(row1.payload);
   check('A: payload memakai data user (cid/hld/exp)', pObj.cid === 'KTR-REQ-001' && pObj.hld === 'Siti Aminah' && pObj.exp === '2027-12-31');
   check('KTP TIDAK masuk payload QR (format kanonik tidak berubah)', !('ktp' in pObj));
-  check('A: payload RAMPING ≥50% (token apr/rsn + ss default OFF, ≤350 karakter)', pObj.apr === 'MP' && pObj.rsn === 'PS1' && !('ss' in pObj) && row1.payload.length <= 350, 'len=' + row1.payload.length);
+  check('A: payload RAMPING (token apr/rsn; ss default OFF, ≤350 karakter)', pObj.apr === 'MP' && pObj.rsn === 'PS1' && !('ss' in pObj) && row1.payload.length <= 350, 'len=' + row1.payload.length);
   check('A: payload VALID terhadap gambar yang dikirim user', (await KS.verify(pubPem, row1.payload, reqBytes)).valid === true);
   check('A: tanda tangan manager terikat (sh); ss default OFF agar QR ringan', typeof pObj.sh === 'string' && pObj.sh.length === 43 && !('ss' in pObj));
   check('A: PNG tanda tangan dilampirkan ke approval (_sig di server)', !!row1.card_data._sig && Buffer.from(row1.card_data._sig, 'base64').length === 611);
@@ -694,7 +706,7 @@ const winA = domA.window, docA = winA.document;
   const urlBack = await D.expandCompactSig(ssStr);
   check('Round-trip compact sig → data URL PNG', typeof urlBack === 'string' && urlBack.startsWith('data:image/png'));
   check('Payload ber-ss VALID via API', (await KS.verify(pubPem, sEmb.payload, imgBytes)).valid === true);
-  $('sigEmbed').checked = false;   // default v2.6
+  $('sigEmbed').checked = false;   // default v2.30 = OFF (dikembalikan setelah sempat ON di v2.20)
   const sNo = await D.signCard();
   const pNo = JSON.parse(sNo.payload);
   check('ss OFF (default) → payload ringan tanpa ss, tetap VALID', !('ss' in pNo) && 'sh' in pNo && (await KS.verify(pubPem, sNo.payload, imgBytes)).valid === true, 'len=' + sNo.payload.length);
@@ -803,6 +815,21 @@ const winA = domA.window, docA = winA.document;
   $('mHolder').value = 'Uji Reset'; $('mKtp').value = '999'; $('mValid').value = '2030-01-01';
   $('btnResetCid').click(); await sleep(800);
   check('Reset → nama & KTP kosong, berlaku-hingga default, nomor PUR baru dari server', $('mHolder').value === '' && $('mKtp').value === '' && $('mValid').value !== '2030-01-01' && /^PUR-\d{4}-\d{2}-\d{4}$/.test($('mCardId').value), $('mCardId').value);
+
+  /* ============ 19g. "SETTING NO ID" — FORMAT NOMOR/ID KARTU CUSTOM (v2.20) ============ */
+  $('btnCidFmt').click(); await sleep(150);
+  check('Tombol "Setting No ID" membuka kotak format + pratinjau contoh', !$('cidFmtBox').classList.contains('hide') && $('cidFmtInput').value.length > 0 && /Contoh hasil/.test($('cidFmtPreview').textContent));
+  $('cidFmtInput').value = 'ABC-TANPA-TOKEN';
+  $('btnCidFmtSave').click(); await sleep(300);
+  check('Format tanpa token {nomor} ditolak (tidak tersimpan, kotak tetap terbuka)', !backend.app_settings.some(s => s.key === 'cid_format') && !$('cidFmtBox').classList.contains('hide'));
+  $('cidFmtInput').value = 'KTR-{tahun}-{nomor}';
+  $('btnCidFmtSave').click(); await sleep(900);
+  const fmtRow = backend.app_settings.find(s => s.key === 'cid_format');
+  check('Format baru tersimpan di server (app_settings) + kotak tertutup', !!fmtRow && fmtRow.value === 'KTR-{tahun}-{nomor}' && $('cidFmtBox').classList.contains('hide'));
+  check('Nomor kartu perangkat A dicetak ulang mengikuti format baru', /^KTR-\d{4}-\d{4}$/.test($('mCardId').value), $('mCardId').value);
+  await DB.loadCidFormat();
+  const idB = await DB.fetchNewCid(true);
+  check('Format berlaku lintas perangkat (perangkat B mengikuti server)', /^KTR-\d{4}-\d{4}$/.test(idB), idB);
 
   /* ============ 20. LOGOUT membersihkan state lokal ============ */
   await D.logout(); await sleep(300);

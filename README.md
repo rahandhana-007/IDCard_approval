@@ -224,7 +224,7 @@ Bila ruang sempit: pilih ECL **L** dan aktifkan **Key ID ringkas**.
 | `supabase/schema.sql` | **Skema database Supabase** (tabel + trigger + kebijakan RLS) — jalankan di SQL Editor |
 | `supabase/keep-alive.yml` | Template cron **GitHub Actions** — heartbeat anti-pause tiap 3 hari (lihat *Menjaga Supabase tetap aktif*) |
 | `deploy/` | Folder siap deploy Netlify (`index.html` + `netlify.toml` + contoh kartu) |
-| `test.js` | Uji end-to-end otomatis (**181 kasus**) memakai jsdom + **mock server Supabase** (Auth/PostgREST/RLS), termasuk alur lintas-perangkat user→manager dan build+uji `IDCardManagement-Verifier.html` |
+| `test.js` | Uji end-to-end otomatis (**188 kasus**) memakai jsdom + **mock server Supabase** (Auth/PostgREST/RLS), termasuk alur lintas-perangkat user→manager dan build+uji `IDCardManagement-Verifier.html` |
 | `qrtest.js` | Uji round-trip QR: payload → matriks → decode |
 | `make_sample.py` | Pembangkit `contoh-kartu.png` |
 
@@ -320,6 +320,22 @@ Config koneksi (URL + anon key) tersimpan di **localStorage → per browser & pe
 Catatan: **login tetap perlu sekali per browser** — token sesi adalah kredensial dan sengaja tidak dibagi antar browser demi keamanan.
 
 ## Catatan rilis
+
+> **Konvensi versi (permintaan pengguna):** setiap revisi, versi pada judul ikut dinaikkan **+0.10** — `<title>`, `<h1>` ("ID Card Management v2.30"), konstanta `APP_VERSION` di template, judul verifier, dan README. Revisi berikutnya = v2.40, dst.
+
+**v2.30 (revisi atas masukan pengguna — ss kembali default OFF)**
+
+- **"Sematkan tanda tangan ringkas (ss) di QR" kembali default TIDAK tercentang** — pengguna mempertimbangkan efeknya ke kepadatan QR (ss ON ≈ +420 karakter → QR versi ±23; OFF ≈ 345 karakter → jauh lebih mudah dipindai saat dicetak kecil). Checkbox tetap tersedia per-approval bagi yang memakai verifier offline dan butuh gambar tanda tangan langsung dari QR.
+- Versi di judul naik menjadi **v2.30** (`<title>`, `<h1>`, `APP_VERSION`, judul verifier).
+- Tidak ada perubahan skema database. Uji otomatis tetap **188 kasus** (default ss OFF; payload approval ramping ≤350; jalur ss ON manual tetap teruji).
+
+**v2.20 (revisi atas masukan pengguna — ss default ON, Setting No ID, versi di judul)**
+
+- **"Sematkan tanda tangan ringkas (ss) di QR" kini default TERCENTANG** (membalik default v2.6). Konsekuensi: payload QR memuat bitmap tanda tangan (~1000 karakter, QR versi ±23) sehingga verifier offline dapat menampilkan gambar tanda tangan langsung dari QR. Yang membutuhkan QR lebih ringan (cetak sangat kecil) dapat menghapus centang per-approval — jalur itu tetap ada dan teruji.
+- Tombol **"⚙ Setting No ID"** di panel *Gambar kartu & data pengajuan*: format Nomor/ID kartu kini **bisa diubah sesuai kebutuhan** lewat template token — `{tahun}` (4 digit), `{bulan}` (2 digit), `{nomor}` (4 digit, increment otomatis dari server, **wajib** agar unik) + teks bebas (huruf/angka/titik/strip/garis miring/underscore, maks. 60 karakter). Contoh: `KTR-{tahun}-{nomor}` → `KTR-2026-0008`. Ada pratinjau contoh langsung + validasi. Format disimpan di **tabel baru `app_settings`** → berlaku untuk semua pengguna & perangkat; RPC server tetap menerbitkan counter unik `PUR-…` lalu klien merender ulang sesuai template (nomor lama yang sudah terlanjur dicetak tetap valid — format tidak mengubah payload/kanonik tanda tangan).
+- **Versi tampil di judul**: `<title>` + `<h1>` = "ID Card Management v2.20"; judul verifier ikut versi; `KartuSign.version` = "2.20".
+- ⚠️ **Wajib jalankan ulang `supabase/schema.sql`** (menambah tabel `app_settings` + trigger; aman dijalankan berulang). Tanpa itu, format hanya tersimpan di browser masing-masing (aplikasi memberi toast peringatan).
+- Uji otomatis: 181 → **188 kasus** (default ss ON; payload approval memuat ss; versi di judul/header; buka kotak Setting No ID; tolak format tanpa `{nomor}`; simpan ke `app_settings`; nomor dicetak ulang; berlaku lintas perangkat).
 
 **v2.10 (revisi atas masukan pengguna — form pengajuan: KTP, reset, ukuran kontrol, favicon)**
 
