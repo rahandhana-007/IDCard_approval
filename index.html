@@ -158,10 +158,9 @@ canvas.qrthumb{image-rendering:pixelated;border:1px solid var(--line);border-rad
       </svg>
     </div>
     <div class="grow">
-      <h1>ID Card Management <span class="badge">Digital Signature · QR</span></h1>
+      <h1>ID Card Management</h1>
       <p class="sub">Purchasing - Raw Material Section | ID Card Vendor Representative Approval</p>
     </div>
-    <span class="chip gray" id="chipCrypto" title="Dukungan kriptografi browser">memeriksa…</span>
     <span class="chip gray hide" id="chipSession" title="Sesi aktif"></span>
     <button class="btn sm hide noprint" id="btnChangePass" title="Ganti password akun ini">Ganti password</button>
     <button class="btn sm hide noprint" id="btnChangeName" title="Ubah nama lengkap Anda">Ganti nama</button>
@@ -494,9 +493,7 @@ canvas.qrthumb{image-rendering:pixelated;border:1px solid var(--line);border-rad
           </div>
           <div class="field" style="margin-top:10px">
             <label style="font-size:13px"><input type="checkbox" id="sigEmbed" style="width:auto"> Sematkan tanda tangan ringkas (<span class="mono">ss</span>) di QR</label>
-            <p class="hint"><b>Default nonaktif</b> agar payload ±60% lebih ringan → QR tidak padat & terbaca scanner walau dicetak kecil. Centang <i>hanya</i> bila petugas memakai <b>verifier offline</b> dan perlu melihat gambar tanda tangan langsung dari isi QR; verifikasi online/login tetap menampilkan PNG asli dari server.</p>
           </div>
-          <p class="hint" id="densityHint"></p>
           <div class="btnrow">
             <button class="btn primary" id="btnSign" disabled>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 12 2 2 4-4"/><path d="M21 12c0 4.97-4.03 9-9 9s-9-4.03-9-9 4.03-9 9-9c2.4 0 4.58.94 6.18 2.47"/></svg>
@@ -3392,6 +3389,38 @@ async function sbAddAccount(u, role, pass, fullName){
   if (role === "manager") patch.role = "manager";
   await SB.updateProfile(newId, patch);
 }
+
+/* ---------------- v2.9: tanda tangan PNG manager di server ----------------
+   Sekali unggah → tersimpan permanen di profiles.sig_png (base64) → otomatis
+   dimuat ulang setiap kali manager login, di browser/perangkat mana pun. */
+async function saveSigToServer(){
+  try{
+    if (!SB.configured() || !S.session || S.session.role !== "manager") return false;
+    if (!S.sigImg || !S.sigImg.bytes || !S.sigImg.bytes.length) return false;
+    await SB.updateProfile(S.session.userId, { sig_png: bytesToB64(S.sigImg.bytes) });
+    return true;
+  }catch(e){ return false; }
+}
+async function restoreSigFromProfile(prof){
+  try{
+    if (!prof || !prof.sig_png) return false;
+    const bytes = b64ToBytes(prof.sig_png);
+    if (!bytes || !bytes.length) return false;
+    const rec = await bytesToImageRec(bytes, "tanda-tangan-manager.png");
+    S.sigImg = rec;
+    const prev = $("sigPrev");
+    if (prev){
+      const mime = (bytes[0] === 0xFF && bytes[1] === 0xD8) ? "image/jpeg"
+                 : (bytes[0] === 0x47 && bytes[1] === 0x49) ? "image/gif"
+                 : (bytes[0] === 0x42 && bytes[1] === 0x4D) ? "image/bmp"
+                 : (bytes[0] === 0x52 && bytes[1] === 0x49) ? "image/webp"
+                 : "image/png";
+      prev.src = "data:" + mime + ";base64," + prof.sig_png;
+      $("sigPrevBox").classList.remove("hide");
+    }
+    return true;
+  }catch(e){ return false; }
+}
 async function renderAccounts(){
   const tb = $("accBody"); if (!tb) return;
   if (!S.session || S.session.role !== "manager"){ tb.innerHTML = '<tr><td colspan="6" class="empty">Hanya manager yang dapat mengelola akun.</td></tr>'; return; }
@@ -3469,6 +3498,7 @@ async function doLogin(){
         const r = S.keys[alg];
         if (r && r.locked){ try{ await unlockKey(alg, p); S.keys[alg].persisted = true; }catch(e){} }
       }
+      if (await restoreSigFromProfile(prof)) toast("Tanda tangan manager dimuat dari server — tidak perlu unggah ulang.");
     }
     applyRole();
     switchTab(defaultTab());
@@ -4276,6 +4306,12 @@ function loadImageFile(file, which){
         else if (which === "sig"){ S.sigImg = rec;
           const prev = $("sigPrev");            // pratinjau lintas-jalur: alpha/transparansi utuh
           if (prev){ prev.src = blobUrl; $("sigPrevBox").classList.remove("hide"); }
+          if (SB.configured() && S.session && S.session.role === "manager"){   // v2.9: sekali unggah, tersimpan permanen di server
+            saveSigToServer().then(saved=>{
+              if (saved) toast("Tanda tangan disimpan ke server — cukup unggah sekali, otomatis tersedia setiap login.");
+              else toast("Tanda tangan gagal disimpan ke server — jalankan ulang supabase/schema.sql terbaru (kolom sig_png).", true);
+            });
+          }
         }
         else if (which === "vsig"){ S.verifySig = rec; }
         else { S.verifyImg = rec; }
@@ -4430,19 +4466,6 @@ function renderSigInfo(){
   if (chip){
     if (S.sig){ chip.className = "chip green"; chip.textContent = "di-approve · draft QR jadi"; }
     else { chip.className = "chip"; chip.textContent = S.currentReqId ? "menunggu approve" : "belum di-approve"; }
-  }
-  const dh = $("densityHint");
-  if (dh){
-    if (S.sig){
-      const adv = qrPrintAdvice(S.sig.payload);
-      dh.innerHTML = "<b>Kepadatan QR:</b> " + esc(qrDensityLabel(S.sig.payload)) + " &middot; payload " + S.sig.payload.length + " karakter." +
-        (adv ? ` <b>${adv.n} modul</b> · cetak minimal ≈ <b>${adv.mm}×${adv.mm} mm</b> (0,4 mm/modul). Untuk cetak sangat kecil: pilih koreksi <b>L</b> dan/atau hapus centang <i>ss</i>.` : "");
-    } else {
-      const est = estimatePayload($("qrAlgo").value, S.signMeta || metaOf());
-      const adv = qrPrintAdvice("X".repeat(est));
-      dh.innerHTML = "<b>Perkiraan kepadatan QR:</b> " + esc(qrDensityLabel("X".repeat(est))) + " &middot; ±" + est + " karakter." +
-        (adv ? ` ≈ <b>${adv.n} modul</b> · cetak minimal ≈ <b>${adv.mm}×${adv.mm} mm</b>.` : "");
-    }
   }
   const done = !!S.sig;
   if ($("btnSign")) $("btnSign").disabled = !S.currentReqId || done;
@@ -4682,16 +4705,11 @@ function init(){
   if (!SELF_HTML_CAPTURED){
     try { SELF_HTML = "<!DOCTYPE html>\n" + document.documentElement.outerHTML; SELF_HTML_CAPTURED = true; } catch(e){}
   }
-  // crypto check
+  // crypto check (chip status dihapus atas permintaan — banner merah tetap bila tidak didukung)
   const ok = !!(window.crypto && crypto.subtle);
-  const chip = $("chipCrypto");
   if (!ok){
-    chip.className = "chip red"; chip.textContent = "Web Crypto tidak tersedia";
     document.body.insertAdjacentHTML("afterbegin",
       '<div style="background:#fef2f2;color:#7f1d1d;padding:14px;text-align:center;font-weight:600">Browser/koneksi ini tidak mendukung Web Crypto API. Buka file lewat https:// atau localhost.</div>');
-  } else {
-    const ed = (typeof crypto.subtle.sign === "function");
-    chip.className = "chip green"; chip.textContent = "Web Crypto aktif · kriptografi lokal";
   }
   if (!QR){ toast("Library QR tidak termuat", true); }
 
@@ -4701,7 +4719,8 @@ function init(){
   });
   if (IS_VERIFIER){
     document.title = "ID Card Management Verifier — Periksa Keaslian Kartu";
-    const b = document.querySelector(".brand .badge");
+    let b = document.querySelector(".brand .badge");
+    if (!b){ const h1 = document.querySelector(".brand h1"); if (h1){ b = document.createElement("span"); b.className = "badge"; h1.appendChild(b); } }
     if (b) b.textContent = "Mode Verifier · kunci tertanam";
   }
 
@@ -5041,6 +5060,7 @@ function init(){
       try{
         const prof = await sbProfileOrThrow();
         S.session = { username: prof.username, fullName: prof.full_name || prof.username, role: prof.role, userId: prof.id, ts: Math.floor(Date.now()/1000) };
+        if (prof.role === "manager"){ try{ await restoreSigFromProfile(prof); }catch(e){} }
       }catch(e){ try{ await SB.logout(); }catch(_){} S.session = null; }
     }
     applyRole();
@@ -5074,7 +5094,7 @@ window.KartuSign = {
   version: "1.0.0",
   state: S,
   _debug: { render, renderSigInfo, encryptBlob, decryptBlob, importPrivateFromText, computeKid, makeQrCanvas, signCard, loadImageFile, computeBadge, applyOrientation, buildVerifierHtml, trustSources, verifySignatureOf, getSelfHtml: ()=>SELF_HTML, canonicalString, buildCompactSig, expandCompactSig, renderApproved, qrPrintAdvice, expandFixed, tokFixed,
-  SB, sbAddAccount, sbEnsureFirstManager, sbProfileOrThrow, doSignup, renderAccounts, rowToRec, bytesToB64, b64ToBytes, loadHistory, pushHistory, startPolling, stopPolling, sendHeartbeat, fetchNewCid,
+  SB, sbAddAccount, sbEnsureFirstManager, sbProfileOrThrow, saveSigToServer, restoreSigFromProfile, doSignup, renderAccounts, rowToRec, bytesToB64, b64ToBytes, loadHistory, pushHistory, startPolling, stopPolling, sendHeartbeat, fetchNewCid,
     reqAll, reqGet, loadRequest, submitRequest, doLogin, logout, applyRole, bytesToImageRec, renderQueue, renderMyRequests, unlockKey, loadKeys, persistKeys, ensureKey, prepareApprovedCard, userDownload, imageFromURL },
   algos: ALG,
   utils: { b64u, b64uToBytes, hexShort, canonicalString, derToPem, pemToDer },
