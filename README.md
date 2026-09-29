@@ -224,7 +224,7 @@ Bila ruang sempit: pilih ECL **L** dan aktifkan **Key ID ringkas**.
 | `supabase/schema.sql` | **Skema database Supabase** (tabel + trigger + kebijakan RLS) — jalankan di SQL Editor |
 | `supabase/keep-alive.yml` | Template cron **GitHub Actions** — heartbeat anti-pause tiap 3 hari (lihat *Menjaga Supabase tetap aktif*) |
 | `deploy/` | Folder siap deploy Netlify (`index.html` + `netlify.toml` + contoh kartu) |
-| `test.js` | Uji end-to-end otomatis (**188 kasus**) memakai jsdom + **mock server Supabase** (Auth/PostgREST/RLS), termasuk alur lintas-perangkat user→manager dan build+uji `IDCardManagement-Verifier.html` |
+| `test.js` | Uji end-to-end otomatis (**191 kasus**) memakai jsdom + **mock server Supabase** (Auth/PostgREST/RLS), termasuk alur lintas-perangkat user→manager dan build+uji `IDCardManagement-Verifier.html` |
 | `qrtest.js` | Uji round-trip QR: payload → matriks → decode |
 | `make_sample.py` | Pembangkit `contoh-kartu.png` |
 
@@ -321,7 +321,13 @@ Catatan: **login tetap perlu sekali per browser** — token sesi adalah kredensi
 
 ## Catatan rilis
 
-> **Konvensi versi (permintaan pengguna):** setiap revisi, versi pada judul ikut dinaikkan **+0.10** — `<title>`, `<h1>` ("ID Card Management v2.30"), konstanta `APP_VERSION` di template, judul verifier, dan README. Revisi berikutnya = v2.40, dst.
+> **Konvensi versi (permintaan pengguna):** setiap revisi, versi pada judul ikut dinaikkan **+0.10** — `<title>`, `<h1>` ("ID Card Management v2.40"), konstanta `APP_VERSION` di template, judul verifier, dan README. Revisi berikutnya = v2.50, dst.
+
+**v2.40 (revisi atas masukan pengguna — reset counter nomor kartu ke 0001)**
+
+- Tombol **"↺ Reset nomor ke 0001"** di dalam kotak *⚙ Setting No ID* (panel *Gambar kartu & data pengajuan*): counter urut bulan berjalan dikembalikan ke 0000 sehingga nomor berikut yang diambil jadi `…-0001`. **Khusus manager** (ditolak server untuk level 1), pakai konfirmasi, dan setelah reset nomor baru langsung ditampilkan di field. Peringatan kembar nomor ditampilkan di UI (bila bulan ini sudah ada nomor terpakai). Ingat: setiap **ganti bulan** counter otomatis mulai lagi dari 0001 tanpa direset.
+- RPC baru **`reset_card_seq()`** (security-definer, cek `is_manager()`, hapus baris `card_seq`). ⚠️ **Wajib jalankan ulang `supabase/schema.sql`** di SQL Editor. Alternatif manual tanpa aplikasi: `delete from public.card_seq;` di SQL Editor.
+- Versi di judul naik menjadi **v2.40**. Uji otomatis: 188 → **191 kasus** (reset → nomor kembali 0001; counter server terhapus; non-manager ditolak).
 
 **v2.30 (revisi atas masukan pengguna — ss kembali default OFF)**
 

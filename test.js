@@ -151,6 +151,12 @@ async function sbFetch(urlStr, opts) {
     backend.cardSeq[per] = (backend.cardSeq[per] || 0) + 1;
     return resp(200, 'PUR-' + per + '-' + String(backend.cardSeq[per]).padStart(4, '0'));
   }
+  if (url.includes('/rest/v1/rpc/reset_card_seq')) {        // v2.40: reset counter (manager saja)
+    if (!a) return resp(401, { code: '42501', message: 'RLS' });
+    if (!isManager(a)) return resp(403, { code: '42501', message: 'Hanya manager yang dapat mereset nomor kartu' });
+    backend.cardSeq = {};
+    return resp(200, null);
+  }
   if (url.includes('/rest/v1/rpc/update_my_full_name')) {   // v2.3: security-definer RPC
     if (!a) return resp(401, { code: '42501', message: 'RLS' });
     const nm = String((body && body.nama) || '').trim();
@@ -830,6 +836,15 @@ const winA = domA.window, docA = winA.document;
   await DB.loadCidFormat();
   const idB = await DB.fetchNewCid(true);
   check('Format berlaku lintas perangkat (perangkat B mengikuti server)', /^KTR-\d{4}-\d{4}$/.test(idB), idB);
+
+  /* ============ 19h. RESET COUNTER NOMOR KE 0001 (v2.40, khusus manager) ============ */
+  const yrNow = String(new Date().getFullYear());
+  $('btnResetSeq').click(); await sleep(900);
+  check('Manager reset counter → nomor berikut kembali …-0001', $('mCardId').value === 'KTR-' + yrNow + '-0001', $('mCardId').value);
+  check('Counter server benar-benar direset (dihitung ulang dari 1)', Object.values(backend.cardSeq).reduce((a, b) => a + b, 0) === 1, JSON.stringify(backend.cardSeq));
+  let seqRejected = false;
+  try { await winB.KartuSign._debug.SB.resetCardSeq(); } catch (e) { seqRejected = true; }
+  check('Non-manager ditolak server saat reset counter', seqRejected);
 
   /* ============ 20. LOGOUT membersihkan state lokal ============ */
   await D.logout(); await sleep(300);

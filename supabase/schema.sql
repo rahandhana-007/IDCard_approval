@@ -264,3 +264,17 @@ drop trigger if exists app_settings_set_updated_at on public.app_settings;
 create trigger app_settings_set_updated_at
   before update on public.app_settings
   for each row execute function public.set_updated_at();
+
+-- ---------- v2.40: reset counter nomor kartu ke 0001 (khusus manager) ----------
+-- Hapus baris counter → panggilan next_card_id() berikut mulai lagi dari 0001.
+-- Peringatan: nomor yang sudah dipakai/dicetak pada bulan berjalan bisa kembar.
+create or replace function public.reset_card_seq()
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  if not public.is_manager() then
+    raise exception 'Hanya manager yang dapat mereset nomor kartu';
+  end if;
+  delete from public.card_seq;
+end; $$;
+revoke all on function public.reset_card_seq() from public;
+grant execute on function public.reset_card_seq() to authenticated;

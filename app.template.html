@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ID Card Management v2.30 — Purchasing - Raw Material Section</title>
+<title>ID Card Management v2.40 — Purchasing - Raw Material Section</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2064%2064'%3E%3Cdefs%3E%3ClinearGradient%20id='g'%20x1='0'%20y1='0'%20x2='1'%20y2='1'%3E%3Cstop%20offset='0'%20stop-color='%234f46e5'/%3E%3Cstop%20offset='1'%20stop-color='%236d28d9'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect%20x='4'%20y='12'%20width='56'%20height='40'%20rx='7'%20fill='url(%23g)'/%3E%3Crect%20x='4'%20y='20'%20width='56'%20height='8'%20fill='%231e1b4b'/%3E%3Crect%20x='10'%20y='35'%20width='13'%20height='10'%20rx='2.5'%20fill='%23fbbf24'/%3E%3Crect%20x='29'%20y='37'%20width='25'%20height='3.5'%20rx='1.75'%20fill='%23c7d2fe'/%3E%3Crect%20x='29'%20y='44'%20width='16'%20height='3.5'%20rx='1.75'%20fill='%23a5b4fc'/%3E%3C/svg%3E">
 <style>
 /*QRGEN_CSS*/
@@ -159,7 +159,7 @@ canvas.qrthumb{image-rendering:pixelated;border:1px solid var(--line);border-rad
       </svg>
     </div>
     <div class="grow">
-      <h1>ID Card Management v2.30</h1>
+      <h1>ID Card Management v2.40</h1>
       <p class="sub">Purchasing - Raw Material Section | ID Card Vendor Representative Approval</p>
     </div>
     <span class="chip gray hide" id="chipSession" title="Sesi aktif"></span>
@@ -314,6 +314,11 @@ canvas.qrthumb{image-rendering:pixelated;border:1px solid var(--line);border-rad
               </div>
               <p class="hint" id="cidFmtPreview" style="margin-top:8px"></p>
               <p class="hint">Token: <span class="mono">{tahun}</span> tahun 4 digit · <span class="mono">{bulan}</span> bulan 2 digit · <span class="mono">{nomor}</span> nomor urut 4 digit (increment otomatis dari server — <b>wajib ada</b> agar nomor tetap unik). Teks bebas: huruf, angka, titik, strip, garis miring, underscore. Format disimpan di server → berlaku untuk semua pengguna &amp; perangkat.</p>
+              <div class="sep"></div>
+              <div class="flex" style="gap:10px;flex-wrap:wrap;align-items:center">
+                <button class="btn danger" id="btnResetSeq" type="button" style="flex:0 0 auto">↺ Reset nomor ke 0001</button>
+                <p class="hint" style="margin:0;flex:1 1 220px">Khusus <b>manager</b>. Counter urut bulan ini dikembalikan ke 0000 → nomor berikut yang diambil jadi <b>0001</b>. Hati-hati: bila bulan ini sudah ada nomor yang dipakai/dicetak, nomor baru bisa <b>kembar</b>. (Setiap ganti bulan, counter otomatis mulai lagi dari 0001.)</p>
+              </div>
             </div>
           </div>
           <div class="row c2">
@@ -894,7 +899,7 @@ const S = {
   history: []
 };
 
-const APP_VERSION = "v2.30";   // ← WAJIB naik (+0.10) setiap revisi; ubah juga <title> & <h1>
+const APP_VERSION = "v2.40";   // ← WAJIB naik (+0.10) setiap revisi; ubah juga <title> & <h1>
 const LS = { hist:"kartusign.history.v1", pub:"kartusign.pub.v1", meta:"kartusign.meta.v1", acc:"kartusign.accounts.v1", sess:"kartusign.session.v1" };
 function lsGet(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }
 function lsSet(k,v){ try{ localStorage.setItem(k,v); }catch(e){} }
@@ -1017,7 +1022,8 @@ const SB = (() => {
     async heartbeat(note){ return rest("heartbeat", { method: "POST", body: { id: "app", last_beat: new Date().toISOString(), note: note || "keep-alive aplikasi" }, prefer: "resolution=merge-duplicates" }); },
     async nextCardId(){ return rest("rpc/next_card_id", { method: "POST", body: {} }); },
     async getSetting(key){ const rows = await rest("app_settings?key=eq." + encodeURIComponent(key) + "&select=value"); return (rows && rows[0] && rows[0].value) || ""; },
-    async saveSetting(key, value){ return rest("app_settings", { method: "POST", body: { key: key, value: String(value) }, prefer: "resolution=merge-duplicates" }); }
+    async saveSetting(key, value){ return rest("app_settings", { method: "POST", body: { key: key, value: String(value) }, prefer: "resolution=merge-duplicates" }); },
+    async resetCardSeq(){ return rest("rpc/reset_card_seq", { method: "POST", body: {} }); }
   };
 })();
 
@@ -2532,6 +2538,19 @@ function init(){
     const id = await fetchNewCid(true);
     if (savedServer) toast("Format Nomor/ID disimpan di server — berlaku untuk semua pengguna." + (id ? " Contoh: " + id : ""));
     else toast("Format disimpan di browser ini saja — server menolak (jalankan ulang supabase/schema.sql untuk tabel app_settings).", true);
+  });
+  $("btnResetSeq").addEventListener("click", async ()=>{
+    if (!S.session || S.session.role !== "manager"){ toast("Hanya manager yang dapat mereset nomor kartu.", true); return; }
+    if (!confirm("Reset counter nomor kartu ke 0001?\nBila bulan ini sudah ada nomor yang dipakai/dicetak, nomor baru bisa kembar.")) return;
+    const btn = $("btnResetSeq"); btn.disabled = true;
+    try{
+      await SB.resetCardSeq();
+      const id = await fetchNewCid(true);
+      toast("Counter nomor direset — nomor berikutnya: " + (id || "…-0001"));
+    }catch(e){
+      toast("Gagal reset counter: " + (e.message || e) + " — jalankan ulang supabase/schema.sql (RPC reset_card_seq).", true);
+    }
+    btn.disabled = false;
   });
   $("btnUserDlPng").addEventListener("click", ()=>userDownload("png"));
   $("btnUserDlJpg").addEventListener("click", ()=>userDownload("jpg"));
