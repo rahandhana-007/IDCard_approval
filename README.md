@@ -224,7 +224,7 @@ Bila ruang sempit: pilih ECL **L** dan aktifkan **Key ID ringkas**.
 | `supabase/schema.sql` | **Skema database Supabase** (tabel + trigger + kebijakan RLS) — jalankan di SQL Editor |
 | `supabase/keep-alive.yml` | Template cron **GitHub Actions** — heartbeat anti-pause tiap 3 hari (lihat *Menjaga Supabase tetap aktif*) |
 | `deploy/` | Folder siap deploy Netlify (`index.html` + `netlify.toml` + contoh kartu) |
-| `test.js` | Uji end-to-end otomatis (**174 kasus**) memakai jsdom + **mock server Supabase** (Auth/PostgREST/RLS), termasuk alur lintas-perangkat user→manager dan build+uji `IDCardManagement-Verifier.html` |
+| `test.js` | Uji end-to-end otomatis (**181 kasus**) memakai jsdom + **mock server Supabase** (Auth/PostgREST/RLS), termasuk alur lintas-perangkat user→manager dan build+uji `IDCardManagement-Verifier.html` |
 | `qrtest.js` | Uji round-trip QR: payload → matriks → decode |
 | `make_sample.py` | Pembangkit `contoh-kartu.png` |
 
@@ -320,6 +320,14 @@ Config koneksi (URL + anon key) tersimpan di **localStorage → per browser & pe
 Catatan: **login tetap perlu sekali per browser** — token sesi adalah kredensial dan sengaja tidak dibagi antar browser demi keamanan.
 
 ## Catatan rilis
+
+**v2.10 (revisi atas masukan pengguna — form pengajuan: KTP, reset, ukuran kontrol, favicon)**
+
+- Panel *Gambar kartu & data pengajuan*: field baru **No KTP / NIK** (opsional, hanya digit — spasi/huruf dibersihkan otomatis). KTP tersimpan di `card_data` server dan terlihat oleh manager (antrean + ringkasan permintaan), tetapi **tidak masuk payload QR** — format kanonik tanda tangan tidak berubah, verifier lama tetap kompatibel. Tidak perlu perubahan skema database.
+- Tombol **↺ Reset** di samping *↻ Nomor baru*: mengembalikan form ke pengaturan default (nama & KTP dikosongkan, *Berlaku hingga* kembali +1 tahun, nomor kartu diminta ulang dari server).
+- Tombol *Nomor baru* & *Reset* kini **ukuran normal** (tinggi sama dengan textbox); field Nomor/ID kartu selebar textbox lain (satu baris penuh).
+- **Favicon kartu** (SVG tertanam, gradien indigo) menggantikan logo bawaan hosting (Netlify) di tab browser — ikut terbawa ke build verifier.
+- Uji otomatis: 174 → **181 kasus**.
 
 **v2.9 (revisi atas masukan pengguna — UI bersih + tanda tangan manager permanen di server)**
 

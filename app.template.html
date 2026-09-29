@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ID Card Management — Purchasing - Raw Material Section</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2064%2064'%3E%3Cdefs%3E%3ClinearGradient%20id='g'%20x1='0'%20y1='0'%20x2='1'%20y2='1'%3E%3Cstop%20offset='0'%20stop-color='%234f46e5'/%3E%3Cstop%20offset='1'%20stop-color='%236d28d9'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect%20x='4'%20y='12'%20width='56'%20height='40'%20rx='7'%20fill='url(%23g)'/%3E%3Crect%20x='4'%20y='20'%20width='56'%20height='8'%20fill='%231e1b4b'/%3E%3Crect%20x='10'%20y='35'%20width='13'%20height='10'%20rx='2.5'%20fill='%23fbbf24'/%3E%3Crect%20x='29'%20y='37'%20width='25'%20height='3.5'%20rx='1.75'%20fill='%23c7d2fe'/%3E%3Crect%20x='29'%20y='44'%20width='16'%20height='3.5'%20rx='1.75'%20fill='%23a5b4fc'/%3E%3C/svg%3E">
 <style>
 /*QRGEN_CSS*/
 :root{
@@ -296,17 +297,22 @@ canvas.qrthumb{image-rendering:pixelated;border:1px solid var(--line);border-rad
             <p class="hint" id="cardFileInfo">Belum ada kartu dimuat.</p>
           </div>
           <div class="sep"></div>
-          <div class="row c2">
-            <div class="field">
-              <label class="f" for="mCardId">Nomor / ID kartu <span class="chip gray" style="font-size:10px">otomatis</span></label>
-              <div class="flex" style="gap:8px;flex-wrap:nowrap;align-items:stretch">
-                <input type="text" id="mCardId" placeholder="PUR-2026-09-0001" autocomplete="off" readonly style="flex:1 1 auto;min-width:0">
-                <button class="btn sm" id="btnNewCid" type="button" title="Ambil nomor baru dari server">↻ Nomor baru</button>
-              </div>
+          <div class="field">
+            <label class="f" for="mCardId">Nomor / ID kartu <span class="chip gray" style="font-size:10px">otomatis</span></label>
+            <div class="flex" style="gap:8px;flex-wrap:wrap;align-items:stretch">
+              <input type="text" id="mCardId" placeholder="PUR-2026-09-0001" autocomplete="off" readonly style="flex:1 1 auto;min-width:180px">
+              <button class="btn" id="btnNewCid" type="button" title="Ambil nomor baru dari server" style="flex:0 0 auto">↻ Nomor baru</button>
+              <button class="btn" id="btnResetCid" type="button" title="Reset form pengajuan ke pengaturan default — nomor kartu diminta ulang dari server" style="flex:0 0 auto">↺ Reset</button>
             </div>
+          </div>
+          <div class="row c2">
             <div class="field">
               <label class="f" for="mHolder">Nama pemegang kartu</label>
               <input type="text" id="mHolder" placeholder="Budi Santoso" autocomplete="off">
+            </div>
+            <div class="field">
+              <label class="f" for="mKtp">No KTP / NIK</label>
+              <input type="text" id="mKtp" placeholder="16 digit — opsional" autocomplete="off" inputmode="numeric" maxlength="20">
             </div>
           </div>
           <div class="row c2">
@@ -1370,6 +1376,7 @@ async function loadRequest(r){
     <dt>Permintaan aktif</dt><dd>#${esc(r.id.slice(0,8))} dari ${esc(r.by)} · ${esc(fmtDate(r.ts))}</dd>
     <dt>ID kartu</dt><dd>${esc(r.meta.cid || "—")}</dd>
     <dt>Pemegang</dt><dd>${esc(r.meta.hld || "—")}</dd>
+    ${r.meta.ktp ? `<dt>No KTP</dt><dd class="mono">${esc(r.meta.ktp)}</dd>` : ""}
     <dt>Disahkan oleh</dt><dd>${esc(r.meta.apr || "—")}</dd>
     <dt>Berlaku s/d</dt><dd>${esc(r.meta.exp || "—")}</dd>`;
   $("cardFileInfoM").innerHTML = `<b>${esc(rec.name)}</b> · ${rec.w}×${rec.h} px · permintaan #${esc(r.id.slice(0,8))}`;
@@ -1387,7 +1394,7 @@ async function renderQueue(){
   const cq = $("chipQueue"); if (cq) cq.textContent = wait + " menunggu";
   if (!all.length){ tb.innerHTML = '<tr><td colspan="6" class="empty">Antrean kosong.</td></tr>'; return; }
   tb.innerHTML = all.map(r=>`<tr>
-    <td>${esc(fmtDate(r.ts))}</td><td>${esc(r.by)}</td><td>${esc(r.meta.cid || "—")}</td><td>${esc(r.meta.hld || "—")}</td>
+    <td>${esc(fmtDate(r.ts))}</td><td>${esc(r.by)}</td><td>${esc(r.meta.cid || "—")}</td><td>${esc(r.meta.hld || "—")}${r.meta.ktp ? `<br><span class="hint">KTP: ${esc(r.meta.ktp)}</span>` : ""}</td>
     <td>${statusChip(r.status)}${r.note ? `<br><span class="hint">${esc(r.note)}</span>` : ""}</td>
     <td>${r.status === "menunggu"
         ? `<button class="btn sm primary" data-proc="${esc(r.id)}">Proses</button> <button class="btn sm danger" data-rej="${esc(r.id)}">Tolak</button>`
@@ -1641,9 +1648,11 @@ function effectivePass(){ return $("kPass").value || S.sessionPass || ""; }
 
 /* ---------------- hash & tanda tangan ---------------- */
 function metaOf(){
+  const ktpEl = $("mKtp");
   return {
     cid: $("mCardId").value.trim(),
     hld: $("mHolder").value.trim(),
+    ktp: ktpEl ? ktpEl.value.replace(/[^0-9]/g, "") : "",   // v2.10: No KTP — disimpan di card_data server, TIDAK masuk payload QR
     apr: $("mApprover").value.trim(),
     exp: $("mValid").value || "",
     rsn: $("mReason").value.trim()
@@ -2433,6 +2442,17 @@ function init(){
     if (id && /^PUR-/.test(id)) toast("Nomor kartu baru: " + id);
     else toast("Gagal mengambil nomor dari server — jalankan ulang supabase/schema.sql (RPC next_card_id).", true);
   });
+  $("btnResetCid").addEventListener("click", async ()=>{
+    const btn = $("btnResetCid"); btn.disabled = true;
+    $("mHolder").value = ""; if ($("mKtp")) $("mKtp").value = "";
+    $("mValid").value = new Date(Date.now() + 365*864e5).toISOString().slice(0,10);   // default: 1 tahun
+    S.signMeta = null; if (S.sig){ S.sig = null; }
+    const id = await fetchNewCid(true);
+    try{ render(); renderSigInfo(); }catch(e){}
+    btn.disabled = false;
+    if (id) toast("Form direset ke default — nomor kartu baru: " + id);
+    else { $("mCardId").value = ""; toast("Form direset ke default — nomor kartu akan diminta ulang dari server saat login.", true); }
+  });
   $("btnUserDlPng").addEventListener("click", ()=>userDownload("png"));
   $("btnUserDlJpg").addEventListener("click", ()=>userDownload("jpg"));
   $("btnUserDlQr").addEventListener("click", ()=>userDownload("qr"));
@@ -2526,7 +2546,7 @@ function init(){
     $(id).addEventListener("change", ()=>{ render(); renderSigInfo(); });
   });
   $("qrPos").addEventListener("change", ()=>{ if ($("qrPos").value !== "custom"){ render(); } });
-  ["mCardId","mHolder","mApprover","mValid","mReason"].forEach(id=>{
+  ["mCardId","mHolder","mKtp","mApprover","mValid","mReason"].forEach(id=>{
     $(id).addEventListener("input", ()=>{ if (S.sig){ S.sig = null; render(); toast("Data berubah — tanda tangan perlu dibuat ulang"); } });
   });
   $("qrAlgo").addEventListener("change", ()=>{

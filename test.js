@@ -293,6 +293,7 @@ const winA = domA.window, docA = winA.document;
   check('Library QR termuat', typeof winA.qrcode === 'function');
   check('init() berjalan tanpa error', errors.length === 0, errors.slice(0, 3).join(' || '));
   check('Chip Web Crypto dihapus (permintaan user)', !$('chipCrypto'));
+  check('Favicon kartu tertanam di file (pengganti logo Netlify)', /<link rel="icon" href="data:image\/svg\+xml/.test(html));
 
   /* ============ 1. SETUP SERVER (panel Supabase) ============ */
   const panel = (w, n) => w.document.querySelector('[data-panel="' + n + '"]');
@@ -491,10 +492,12 @@ const winA = domA.window, docA = winA.document;
   const reqBytes = new Uint8Array(900).map((_, i) => (i * 13 + 5) & 0xff);
   await DB.loadImageFile(new winB.File([reqBytes], 'kartu-request.png', { type: 'image/png' }), 'card');
   $B('mCardId').value = 'KTR-REQ-001'; $B('mHolder').value = 'Siti Aminah'; $B('mValid').value = '2027-12-31';
+  $B('mKtp').value = '1271 0000 0000 0001';   // v2.10:dengan spasi → harus dibersihkan jadi digit saja
   $B('btnSubmitReq').click(); await sleep(900);
   const row1 = backend.requests.find(r => (r.card_data || {}).cid === 'KTR-REQ-001');
   check('B: pengajuan terkirim ke SERVER (status menunggu, by_name = nama lengkap)', !!row1 && row1.status === 'menunggu' && row1.by_name === 'Siti Aminah', row1 && row1.by_name);
   check('B: gambar kartu ikut tersimpan (base64)', row1 && row1.image_b64 && row1.image_b64.length > 100);
+  check('B: No KTP ikut tersimpan di card_data server (spasi dibersihkan)', (row1.card_data || {}).ktp === '1271000000000001', (row1.card_data || {}).ktp);
   check('B: tabel "pengajuan saya" → menunggu', /menunggu/.test($B('myReqBody').textContent));
   check('B: setelah submit, nomor baru otomatis diambil lagi', /^PUR-\d{4}-\d{2}-\d{4}$/.test($B('mCardId').value) && $B('mCardId').value !== cidAuto, $B('mCardId').value);
   $B('mCardId').value = '';
@@ -506,10 +509,12 @@ const winA = domA.window, docA = winA.document;
   /* ============ 10. PERANGKAT A: manager memproses & menandatangani ============ */
   await D.renderQueue();
   check('A: antrean manager memuat permintaan siti (lintas perangkat)', /KTR-REQ-001/.test($('queueBody').textContent) && /Siti Aminah/.test($('queueBody').textContent));
+  check('No KTP tampil di antrean manager', /KTP: 1271000000000001/.test($('queueBody').textContent));
   const procBtn = docA.querySelector('#queueBody [data-proc]');
   check('A: tombol Proses tersedia', !!procBtn);
   procBtn.click(); await sleep(900);
   check('A: request dimuat (meta dari server + gambar di-decode)', KS.state.currentReqId === row1.id && KS.state.signMeta.cid === 'KTR-REQ-001' && KS.state.card.bytes.length === reqBytes.length);
+  check('Manager melihat No KTP di ringkasan permintaan', /1271000000000001/.test($('reqSummary').textContent), $('reqSummary').textContent.replace(/\s+/g, ' ').slice(0, 90));
   check('A: tombol Approve aktif saat permintaan dimuat', $('btnSign').disabled === false);
   const sigBytesM = new Uint8Array(611).map((_, i) => (i * 17 + 3) & 0xff);
   await D.loadImageFile(new winA.File([sigBytesM], 'ttd-manager.png', { type: 'image/png' }), 'sig');
@@ -521,6 +526,7 @@ const winA = domA.window, docA = winA.document;
   check('A: status di server → disetujui + payload tersimpan', row1.status === 'disetujui' && row1.payload.length > 50 && row1.signed_by === 'boss');
   const pObj = JSON.parse(row1.payload);
   check('A: payload memakai data user (cid/hld/exp)', pObj.cid === 'KTR-REQ-001' && pObj.hld === 'Siti Aminah' && pObj.exp === '2027-12-31');
+  check('KTP TIDAK masuk payload QR (format kanonik tidak berubah)', !('ktp' in pObj));
   check('A: payload RAMPING ≥50% (token apr/rsn + ss default OFF, ≤350 karakter)', pObj.apr === 'MP' && pObj.rsn === 'PS1' && !('ss' in pObj) && row1.payload.length <= 350, 'len=' + row1.payload.length);
   check('A: payload VALID terhadap gambar yang dikirim user', (await KS.verify(pubPem, row1.payload, reqBytes)).valid === true);
   check('A: tanda tangan manager terikat (sh); ss default OFF agar QR ringan', typeof pObj.sh === 'string' && pObj.sh.length === 43 && !('ss' in pObj));
@@ -791,6 +797,12 @@ const winA = domA.window, docA = winA.document;
   check('Browser baru: login manager → sig PNG otomatis dipulihkan dari server', !!KSG.state.sigImg && KSG.state.sigImg.bytes.length === expLen, KSG.state.sigImg ? KSG.state.sigImg.bytes.length : 'null');
   check('Pratinjau tanda tangan langsung tampil tanpa unggah ulang', !winG.document.getElementById('sigPrevBox').classList.contains('hide') && /^(data:|blob:)/.test(winG.document.getElementById('sigPrev').src));
   KSG._debug.stopPolling();
+
+  /* ============ 19f. RESET FORM PENGAJUAN + UKURAN KONTROL ID (v2.10) ============ */
+  check('Tombol ID ukuran normal (sama besar dgn textbox) + tombol Reset ada', !$('btnNewCid').classList.contains('sm') && !!$('btnResetCid'));
+  $('mHolder').value = 'Uji Reset'; $('mKtp').value = '999'; $('mValid').value = '2030-01-01';
+  $('btnResetCid').click(); await sleep(800);
+  check('Reset → nama & KTP kosong, berlaku-hingga default, nomor PUR baru dari server', $('mHolder').value === '' && $('mKtp').value === '' && $('mValid').value !== '2030-01-01' && /^PUR-\d{4}-\d{2}-\d{4}$/.test($('mCardId').value), $('mCardId').value);
 
   /* ============ 20. LOGOUT membersihkan state lokal ============ */
   await D.logout(); await sleep(300);
