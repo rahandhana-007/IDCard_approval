@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ID Card Management v2.70 — Purchasing - Raw Material Section</title>
+<title>ID Card Management v2.80 — Purchasing - Raw Material Section</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2064%2064'%3E%3Cdefs%3E%3ClinearGradient%20id='g'%20x1='0'%20y1='0'%20x2='1'%20y2='1'%3E%3Cstop%20offset='0'%20stop-color='%234f46e5'/%3E%3Cstop%20offset='1'%20stop-color='%236d28d9'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect%20x='4'%20y='12'%20width='56'%20height='40'%20rx='7'%20fill='url(%23g)'/%3E%3Crect%20x='4'%20y='20'%20width='56'%20height='8'%20fill='%231e1b4b'/%3E%3Crect%20x='10'%20y='35'%20width='13'%20height='10'%20rx='2.5'%20fill='%23fbbf24'/%3E%3Crect%20x='29'%20y='37'%20width='25'%20height='3.5'%20rx='1.75'%20fill='%23c7d2fe'/%3E%3Crect%20x='29'%20y='44'%20width='16'%20height='3.5'%20rx='1.75'%20fill='%23a5b4fc'/%3E%3C/svg%3E">
 <style>
 /*QRGEN_CSS*/
@@ -159,7 +159,7 @@ canvas.qrthumb{image-rendering:pixelated;border:1px solid var(--line);border-rad
       </svg>
     </div>
     <div class="grow">
-      <h1>ID Card Management v2.70</h1>
+      <h1>ID Card Management v2.80</h1>
       <p class="sub">Purchasing - Raw Material Section | ID Card Vendor Representative Approval</p>
     </div>
     <span class="chip gray hide" id="chipSession" title="Sesi aktif"></span>
@@ -899,7 +899,7 @@ const S = {
   history: []
 };
 
-const APP_VERSION = "v2.70";   // ← WAJIB naik (+0.10) setiap revisi; ubah juga <title> & <h1>
+const APP_VERSION = "v2.80";   // ← WAJIB naik (+0.10) setiap revisi; ubah juga <title> & <h1>
 const LS = { hist:"kartusign.history.v1", pub:"kartusign.pub.v1", meta:"kartusign.meta.v1", acc:"kartusign.accounts.v1", sess:"kartusign.session.v1" };
 function lsGet(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }
 function lsSet(k,v){ try{ localStorage.setItem(k,v); }catch(e){} }

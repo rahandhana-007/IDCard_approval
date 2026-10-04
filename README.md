@@ -228,7 +228,7 @@ Bila ruang sempit: pilih ECL **L** dan aktifkan **Key ID ringkas**.
 | `supabase/schema.sql` | **Skema database Supabase** (tabel + trigger + kebijakan RLS) — jalankan di SQL Editor |
 | `supabase/keep-alive.yml` | Template cron **GitHub Actions** — heartbeat anti-pause tiap 3 hari (lihat *Menjaga Supabase tetap aktif*) |
 | `deploy/` | Folder siap deploy Netlify (`index.html` + `cek-keaslian.html` + `netlify.toml` + contoh kartu) |
-| `test.js` | Uji end-to-end otomatis (**202 kasus**) memakai jsdom + **mock server Supabase** (Auth/PostgREST/RLS), termasuk alur lintas-perangkat user→manager dan build+uji `IDCardManagement-Verifier.html` |
+| `test.js` | Uji end-to-end otomatis (**205 kasus**) memakai jsdom + **mock server Supabase** (Auth/PostgREST/RLS), termasuk alur lintas-perangkat user→manager dan build+uji `IDCardManagement-Verifier.html` |
 | `qrtest.js` | Uji round-trip QR: payload → matriks → decode |
 | `make_sample.py` | Pembangkit `contoh-kartu.png` |
 
@@ -329,7 +329,7 @@ Catatan: **login tetap perlu sekali per browser** — token sesi adalah kredensi
 **`CekKeaslian.html`** — satu file standalone untuk petugas/pemegang kartu memeriksa keaslian: **satu textbox** untuk menempel isi QR, tanpa login, tanpa panel lain.
 
 - Kunci publik penerbit diambil **live dari Supabase** lewat RPC `public_signing_keys()` (boleh anonim — hanya kolom publik `alg/kid/pubkey_pem` yang dipaparkan; blob privat terenkripsi tidak pernah keluar). Kunci berganti/rotasi → platform otomatis mengikuti, tanpa build ulang.
-- **Modul barcode scanner** (v2.60): tombol **📷 Scan QR (kamera)** — video live dengan bingkai pandu, decode lokal tiap ±220 ms (jsQR, tanpa unggah gambar apa pun), putusan otomatis begitu QR terbaca; **💡 Senter** bila perangkat mendukung; **🖼 Scan dari foto** untuk foto/berkas QR. Kamera butuh HTTPS + izin; bila tidak tersedia, muncul pesan jelas dan jalur tempel manual/foto tetap berfungsi.
+- **Modul barcode scanner** (v2.60): tombol **📷 Scan QR (kamera)** — video live dengan bingkai pandu, decode lokal tiap ±220 ms (jsQR, tanpa unggah gambar apa pun), putusan otomatis begitu QR terbaca; **💡 Senter** bila perangkat mendukung; **🖼 Scan dari foto** untuk foto/berkas QR. Kamera butuh HTTPS + izin; bila gagal, pesan diagnosa spesifik per penyebab (v2.80): di dalam iframe/pratinjau → arahan buka URL langsung; tanpa perangkat kamera → KAMERA TIDAK DITEMUKAN; izin ditolak → cara mengizinkan. Jalur tempel manual/foto selalu berfungsi.
 - **PWA (v2.70)**: dapat **di-instal** ke layar utama HP (tampilan *standalone* tanpa address bar, ikon kartu khusus, tombol *⤓ Instal aplikasi* muncul otomatis bila browser menawarkannya) dan **tetap berfungsi offline** — service worker meng-cache halaman + kunci publik penerbit (network-first), sehingga verifikasi keaslian jalan tanpa internet memakai kunci terakhir yang tersimpan; saat offline total tanpa cache, pesan menjelaskan caranya.
 - **Catatan kamera**: akses kamera diblokir browser bila halaman tidak dalam konteks aman — di Netlify (HTTPS) tombol 📷 berfungsi; di pratinjau ber-iframe/`file://` tidak. Di lingkungan tanpa kamera, pakai **🖼 Scan dari foto** (di HP tombol ini membuka aplikasi kamera langsung).
 - Mesin verifikasi **identik** dengan aplikasi utama (canonical string KS3/KS2, ECDSA P-256 / RSA-2048, token `MP`/`PS1` diekspansi saat tampil) → putusan konsisten: `✓ KARTU INI ASLI` / `✗ KARTU TIDAK ASLI` + alasan spesifik (payload rusak, kid tak dikenal, tanda tangan tidak cocok) + detail kartu + peringatan bila masa berlaku habis.
@@ -339,7 +339,16 @@ Catatan: **login tetap perlu sekali per browser** — token sesi adalah kredensi
 
 ## Catatan rilis
 
-> **Konvensi versi (permintaan pengguna):** setiap revisi, versi pada judul ikut dinaikkan **+0.10** — `<title>`, `<h1>` ("ID Card Management v2.70"), konstanta `APP_VERSION` di template, judul verifier, platform cek keaslian, dan README. Revisi berikutnya = v2.80, dst.
+> **Konvensi versi (permintaan pengguna):** setiap revisi, versi pada judul ikut dinaikkan **+0.10** — `<title>`, `<h1>` ("ID Card Management v2.80"), konstanta `APP_VERSION` di template, judul verifier, platform cek keaslian, dan README. Revisi berikutnya = v2.90, dst.
+
+**v2.80 (revisi atas masukan pengguna — diagnosa galat kamera tepat sasaran)**
+
+- Laporan pengguna: *✗ KAMERA DITOLAK (NotFoundError)* saat mencoba scan. Akar masalah: halaman dibuka **di dalam iframe pratinjau** (mis. pratinjau Arena) sehingga browser tidak meneruskan perangkat kamera — bukan bug kode/PWA; di URL Netlify yang dibuka langsung, kamera berfungsi. Perbaikan:
+  - **Deteksi konteks iframe** (`window.self!==window.top`) → pesan khusus **"KAMERA DI DALAM PRATINJAU"** berisi arahan membuka URL situs langsung di tab browser.
+  - **Pre-check `enumerateDevices()`**: bila tak ada perangkat `videoinput`, langsung **"KAMERA TIDAK DITEMUKAN"** + arahan *Scan dari foto* (tanpa memanggil getUserMedia sia-sia).
+  - Pesan galat dipisah per jenis: **IZIN KAMERA DITOLAK** (NotAllowedError/SecurityError — cara mengizinkan lewat ikon gembok) vs **KAMERA TIDAK DITEMUKAN** (NotFoundError dsb.) — menggantikan pesan generik "KAMERA DITOLAK".
+- Versi judul (aplikasi utama + platform cek) naik menjadi **v2.80**. Tidak ada perubahan skema database.
+- Uji otomatis: 202 → **205 kasus** (deteksi iframe + pesan khusus; stub NotFoundError → KAMERA TIDAK DITEMUKAN; stub NotAllowedError → IZIN KAMERA DITOLAK).
 
 **v2.70 (revisi atas masukan pengguna — platform cek keaslian jadi PWA)**
 

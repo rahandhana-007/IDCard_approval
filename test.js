@@ -892,7 +892,20 @@ const winA = domA.window, docA = winA.document;
     check('Scanner: jsQR tertanam — bitmap QR payload asli ter-decode utuh', decodedJ === row1.payload, String(decodedJ).slice(0, 60));
   }
   docH.getElementById('btnScan').click(); await sleep(300);
-  check('Scanner: tanpa dukungan kamera → pesan jelas (tidak crash)', /KAMERA TIDAK TERSEDIA|KAMERA DITOLAK/.test(resH.textContent), resH.textContent.replace(/\s+/g, ' ').slice(0, 80));
+  check('Scanner: tanpa dukungan kamera → pesan jelas (tidak crash)', /KAMERA TIDAK TERSEDIA|IZIN KAMERA DITOLAK|KAMERA TIDAK DITEMUKAN/.test(resH.textContent), resH.textContent.replace(/\s+/g, ' ').slice(0, 80));
+  check('Scanner: deteksi iframe/pratinjau → pesan khusus (bukan galat generik)', cekRaw.includes('window.self!==window.top') && cekRaw.includes('KAMERA DI DALAM PRATINJAU'));
+  Object.defineProperty(winH.navigator, 'mediaDevices', { configurable: true, value: {
+    enumerateDevices: () => Promise.resolve([{ kind: 'audioinput', deviceId: 'mic' }]),
+    getUserMedia: () => Promise.reject(Object.assign(new Error('Requested device not found'), { name: 'NotFoundError' }))
+  }});
+  await winH.CekKeaslian.startScanner();
+  check('Scanner: tanpa perangkat kamera (NotFoundError) → "KAMERA TIDAK DITEMUKAN" + arahan Scan dari foto', /KAMERA TIDAK DITEMUKAN/.test(resH.textContent) && /Scan dari foto/.test(resH.textContent), resH.textContent.replace(/\s+/g, ' ').slice(0, 90));
+  Object.defineProperty(winH.navigator, 'mediaDevices', { configurable: true, value: {
+    enumerateDevices: () => Promise.resolve([{ kind: 'videoinput', deviceId: 'cam' }]),
+    getUserMedia: () => Promise.reject(Object.assign(new Error('Permission denied'), { name: 'NotAllowedError' }))
+  }});
+  await winH.CekKeaslian.startScanner();
+  check('Scanner: izin ditolak (NotAllowedError) → "IZIN KAMERA DITOLAK" + cara mengizinkan', /IZIN KAMERA DITOLAK/.test(resH.textContent), resH.textContent.replace(/\s+/g, ' ').slice(0, 90));
 
   /* ============ 19k. PWA PLATFORM CEK (v2.70) ============ */
   check('PWA: manifest + theme-color + apple-touch-icon di halaman cek', /rel="manifest"/.test(cekRaw) && /name="theme-color"/.test(cekRaw) && /apple-touch-icon/.test(cekRaw));

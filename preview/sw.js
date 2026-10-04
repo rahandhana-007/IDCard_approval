@@ -5,9 +5,9 @@
    - Kunci publik penerbit (RPC public_signing_keys): network-first lalu
      disimpan ke cache → bila offline, VERIFIKASI KEASLIAN TETAP JALAN
      memakai kunci yang terakhir tersimpan.
-   Nama cache distempel build.py sesuai versi rilis (mengganti v2.70).
+   Nama cache distempel build.py sesuai versi rilis (mengganti v2.80).
    ===================================================================== */
-const CACHE = "cek-v2.70";
+const CACHE = "cek-v2.80";
 const KEYS_URL = new URL("/__public_signing_keys__", self.location.origin).href;
 const ASSETS = ["cek-keaslian.html", "manifest.webmanifest", "icon-192.png", "icon-512.png"];
 
