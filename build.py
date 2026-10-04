@@ -42,6 +42,17 @@ if cek_tpl.exists():
     pathlib.Path("CekKeaslian.html").write_text(cek, encoding="utf-8")
     (prev / "cek-keaslian.html").write_text(cek, encoding="utf-8")
     (dep / "cek-keaslian.html").write_text(cek, encoding="utf-8")
+    import re, shutil
+    _mver = re.search(r"Cek Keaslian Kartu (v[0-9.]+)", cek)
+    _cver = _mver.group(1) if _mver else "dev"
+    _pwa = pathlib.Path("pwa")
+    if _pwa.exists():
+        for _t in (prev, dep):
+            (_t / "manifest.webmanifest").write_text((_pwa / "manifest.webmanifest").read_text(encoding="utf-8"), encoding="utf-8")
+            (_t / "sw.js").write_text((_pwa / "sw.js").read_text(encoding="utf-8").replace("__CACHE_VER__", _cver), encoding="utf-8")
+            for _ic in ("icon-192.png", "icon-512.png"):
+                if (_pwa / _ic).exists(): shutil.copyfile(_pwa / _ic, _t / _ic)
+        print("OK -> PWA (manifest, sw.js cache " + _cver + ", ikon) ke preview/ & deploy/")
     print("OK -> CekKeaslian.html", len(cek), "bytes (+ preview/ & deploy/ cek-keaslian.html)")
 
 print("OK ->", main, len(out), "bytes")

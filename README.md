@@ -223,11 +223,12 @@ Bila ruang sempit: pilih ECL **L** dan aktifkan **Key ID ringkas**.
 | `app.template.html` | Sumber aplikasi (tanpa library QR) — edit di sini |
 | `qrcode-generator.js` | Library QR (Kazuhiko Arase, MIT) yang ditanam saat build |
 | `jsqr.js` | Library **decoder** QR (jsQR 1.4.0, Apache-2.0) yang ditanam ke `CekKeaslian.html` saat build |
+| `pwa/` | Aset PWA platform cek: `manifest.webmanifest`, `sw.js` (cache offline + kunci publik), `icon-192/512.png` (dibangkitkan `make_icons.py`) — disalin build ke `preview/` & `deploy/` |
 | `build.py` | Merakit `KartuSign.html` dari template + library (sekalian menulis `preview/` & `deploy/`) |
 | `supabase/schema.sql` | **Skema database Supabase** (tabel + trigger + kebijakan RLS) — jalankan di SQL Editor |
 | `supabase/keep-alive.yml` | Template cron **GitHub Actions** — heartbeat anti-pause tiap 3 hari (lihat *Menjaga Supabase tetap aktif*) |
 | `deploy/` | Folder siap deploy Netlify (`index.html` + `cek-keaslian.html` + `netlify.toml` + contoh kartu) |
-| `test.js` | Uji end-to-end otomatis (**198 kasus**) memakai jsdom + **mock server Supabase** (Auth/PostgREST/RLS), termasuk alur lintas-perangkat user→manager dan build+uji `IDCardManagement-Verifier.html` |
+| `test.js` | Uji end-to-end otomatis (**202 kasus**) memakai jsdom + **mock server Supabase** (Auth/PostgREST/RLS), termasuk alur lintas-perangkat user→manager dan build+uji `IDCardManagement-Verifier.html` |
 | `qrtest.js` | Uji round-trip QR: payload → matriks → decode |
 | `make_sample.py` | Pembangkit `contoh-kartu.png` |
 
@@ -329,6 +330,8 @@ Catatan: **login tetap perlu sekali per browser** — token sesi adalah kredensi
 
 - Kunci publik penerbit diambil **live dari Supabase** lewat RPC `public_signing_keys()` (boleh anonim — hanya kolom publik `alg/kid/pubkey_pem` yang dipaparkan; blob privat terenkripsi tidak pernah keluar). Kunci berganti/rotasi → platform otomatis mengikuti, tanpa build ulang.
 - **Modul barcode scanner** (v2.60): tombol **📷 Scan QR (kamera)** — video live dengan bingkai pandu, decode lokal tiap ±220 ms (jsQR, tanpa unggah gambar apa pun), putusan otomatis begitu QR terbaca; **💡 Senter** bila perangkat mendukung; **🖼 Scan dari foto** untuk foto/berkas QR. Kamera butuh HTTPS + izin; bila tidak tersedia, muncul pesan jelas dan jalur tempel manual/foto tetap berfungsi.
+- **PWA (v2.70)**: dapat **di-instal** ke layar utama HP (tampilan *standalone* tanpa address bar, ikon kartu khusus, tombol *⤓ Instal aplikasi* muncul otomatis bila browser menawarkannya) dan **tetap berfungsi offline** — service worker meng-cache halaman + kunci publik penerbit (network-first), sehingga verifikasi keaslian jalan tanpa internet memakai kunci terakhir yang tersimpan; saat offline total tanpa cache, pesan menjelaskan caranya.
+- **Catatan kamera**: akses kamera diblokir browser bila halaman tidak dalam konteks aman — di Netlify (HTTPS) tombol 📷 berfungsi; di pratinjau ber-iframe/`file://` tidak. Di lingkungan tanpa kamera, pakai **🖼 Scan dari foto** (di HP tombol ini membuka aplikasi kamera langsung).
 - Mesin verifikasi **identik** dengan aplikasi utama (canonical string KS3/KS2, ECDSA P-256 / RSA-2048, token `MP`/`PS1` diekspansi saat tampil) → putusan konsisten: `✓ KARTU INI ASLI` / `✗ KARTU TIDAK ASLI` + alasan spesifik (payload rusak, kid tak dikenal, tanda tangan tidak cocok) + detail kartu + peringatan bila masa berlaku habis.
 - Koneksi server ikut tertanam saat `python3 build.py` (dari `supabase/config.json`), juga mendukung link `?sb_url=…&sb_key=…` dan config localStorage.
 - Deploy Netlify: file ada di `deploy/cek-keaslian.html` → URL publik `https://situs-anda/cek-keaslian.html`. Pratinjau lokal: `http://localhost:8080/cek-keaslian.html`.
@@ -336,7 +339,15 @@ Catatan: **login tetap perlu sekali per browser** — token sesi adalah kredensi
 
 ## Catatan rilis
 
-> **Konvensi versi (permintaan pengguna):** setiap revisi, versi pada judul ikut dinaikkan **+0.10** — `<title>`, `<h1>` ("ID Card Management v2.60"), konstanta `APP_VERSION` di template, judul verifier, platform cek keaslian, dan README. Revisi berikutnya = v2.70, dst.
+> **Konvensi versi (permintaan pengguna):** setiap revisi, versi pada judul ikut dinaikkan **+0.10** — `<title>`, `<h1>` ("ID Card Management v2.70"), konstanta `APP_VERSION` di template, judul verifier, platform cek keaslian, dan README. Revisi berikutnya = v2.80, dst.
+
+**v2.70 (revisi atas masukan pengguna — platform cek keaslian jadi PWA)**
+
+- `CekKeaslian.html` kini **PWA**: manifest + ikon kartu (192/512, dibuat `make_icons.py` murni Python) + service worker `sw.js`. Bisa **di-instal** ke layar utama (standalone, portrait, theme indigo) dan **bekerja offline**: halaman ter-cache, dan kunci publik penerbit ikut di-cache (network-first) sehingga **verifikasi keaslian tetap jalan tanpa internet**; tombol *⤓ Instal aplikasi* muncul otomatis saat browser menawarkan instalasi. Registrasi SW hanya di konteks aman (https/localhost) — di `file://` dilewati dengan aman.
+- Pesan khusus bila offline tanpa cache kunci (HTTP 503 dari SW): petunjuk menyambung sebentar agar kunci tersimpan.
+- Klarifikasi penting: **kamera scan QR tidak bergantung pada status PWA** — ia butuh konteks aman (HTTPS/localhost) + izin. Di Netlify tombol 📷 berfungsi; di pratinjau ber-iframe atau `file://` tidak, dan jalur **🖼 Scan dari foto** (di HP membuka aplikasi kamera langsung) selalu tersedia.
+- Versi judul (aplikasi utama + platform cek) naik menjadi **v2.70**. Tidak ada perubahan skema database.
+- Uji otomatis: 198 → **202 kasus** (manifest/meta PWA di halaman; registrasi SW ber-guard konteks aman; `deploy/sw.js` memuat cache kunci publik + versi tercetak tanpa placeholder tersisa; manifest valid: standalone + start_url + ikon tersedia).
 
 **v2.60 (revisi atas masukan pengguna — modul barcode scanner di platform cek keaslian)**
 

@@ -1,0 +1,18 @@
+{
+  "name": "Cek Keaslian Kartu — ID Card Management",
+  "short_name": "Cek Keaslian",
+  "description": "Periksa keaslian kartu lewat scan QR — tanpa login.",
+  "id": "./cek-keaslian.html",
+  "start_url": "./cek-keaslian.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#eef1f8",
+  "theme_color": "#4f46e5",
+  "lang": "id",
+  "icons": [
+    { "src": "./icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "./icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "./icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

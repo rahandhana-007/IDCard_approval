@@ -894,6 +894,14 @@ const winA = domA.window, docA = winA.document;
   docH.getElementById('btnScan').click(); await sleep(300);
   check('Scanner: tanpa dukungan kamera → pesan jelas (tidak crash)', /KAMERA TIDAK TERSEDIA|KAMERA DITOLAK/.test(resH.textContent), resH.textContent.replace(/\s+/g, ' ').slice(0, 80));
 
+  /* ============ 19k. PWA PLATFORM CEK (v2.70) ============ */
+  check('PWA: manifest + theme-color + apple-touch-icon di halaman cek', /rel="manifest"/.test(cekRaw) && /name="theme-color"/.test(cekRaw) && /apple-touch-icon/.test(cekRaw));
+  check('PWA: service worker terdaftar hanya di konteks aman', /navigator\.serviceWorker\.register\("sw\.js"\)/.test(cekRaw) && /location\.protocol === "https:"/.test(cekRaw));
+  const swSrc = fs.readFileSync(path.join(__dirname, 'deploy', 'sw.js'), 'utf8');
+  check('PWA: SW ter-deploy — cache kunci publik utk verifikasi offline + versi tercetak', /public_signing_keys/.test(swSrc) && /cek-v2\.\d+/.test(swSrc) && !/__CACHE_VER__/.test(swSrc));
+  const man = JSON.parse(fs.readFileSync(path.join(__dirname, 'deploy', 'manifest.webmanifest'), 'utf8'));
+  check('PWA: manifest valid (standalone, start_url, ikon tersedia)', man.display === 'standalone' && /cek-keaslian\.html/.test(man.start_url) && Array.isArray(man.icons) && man.icons.length >= 2 && fs.existsSync(path.join(__dirname, 'deploy', 'icon-512.png')) && fs.existsSync(path.join(__dirname, 'deploy', 'icon-192.png')));
+
   /* ============ 20. LOGOUT membersihkan state lokal ============ */
   await D.logout(); await sleep(300);
   check('Logout → panel login, kunci memori dibersihkan', !panel(winA, 'login').classList.contains('hide') && !KS.state.keys.ES256 && !winA.localStorage.getItem('kartusign.sb.session.v1'));

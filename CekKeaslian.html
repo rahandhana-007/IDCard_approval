@@ -3,8 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Cek Keaslian Kartu v2.60 — ID Card Management</title>
+<title>Cek Keaslian Kartu v2.70 — ID Card Management</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2064%2064'%3E%3Cdefs%3E%3ClinearGradient%20id='g'%20x1='0'%20y1='0'%20x2='1'%20y2='1'%3E%3Cstop%20offset='0'%20stop-color='%234f46e5'/%3E%3Cstop%20offset='1'%20stop-color='%236d28d9'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect%20x='4'%20y='12'%20width='56'%20height='40'%20rx='7'%20fill='url(%23g)'/%3E%3Crect%20x='4'%20y='20'%20width='56'%20height='8'%20fill='%231e1b4b'/%3E%3Crect%20x='10'%20y='35'%20width='13'%20height='10'%20rx='2.5'%20fill='%23fbbf24'/%3E%3Crect%20x='29'%20y='37'%20width='25'%20height='3.5'%20rx='1.75'%20fill='%23c7d2fe'/%3E%3Crect%20x='29'%20y='44'%20width='16'%20height='3.5'%20rx='1.75'%20fill='%23a5b4fc'/%3E%3C/svg%3E">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#4f46e5">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
 <style>
 :root{--brand:#4f46e5;--ink:#0f172a;--muted:#64748b;--line:#e2e8f0;--line2:#cbd5e1;--ok:#047857;--okbg:#ecfdf5;--err:#b91c1c;--errbg:#fef2f2}
 *{box-sizing:border-box}
@@ -61,7 +66,7 @@ ol.steps{margin:8px 0 0;padding-left:20px;font-size:13px;color:#334155;line-heig
     <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2.5"/><path d="M2 10h20"/><rect x="5" y="13" width="4" height="3" rx="1" fill="#fbbf24" stroke="none"/><path d="M12 14.5h7M12 17h4"/></svg>
   </div>
   <div>
-    <h1>Cek Keaslian Kartu v2.60</h1>
+    <h1>Cek Keaslian Kartu v2.70</h1>
     <p class="sub">Purchasing - Raw Material Section | ID Card Vendor Representative Approval</p>
   </div>
 </header>
@@ -75,6 +80,7 @@ ol.steps{margin:8px 0 0;padding-left:20px;font-size:13px;color:#334155;line-heig
       <div class="btnrow">
         <button class="btn" id="btnScan" type="button">📷 Scan QR (kamera)</button>
         <button class="btn" id="btnScanFile" type="button">🖼 Scan dari foto</button>
+        <button class="btn hide" id="btnInstall" type="button" title="Instal ke layar utama (PWA)">⤓ Instal aplikasi</button>
         <input type="file" id="fileScan" accept="image/*" capture="environment" class="hide">
       </div>
       <div id="scanBox" class="hide">
@@ -10305,6 +10311,7 @@ async function fetchPublicKeys(cfg){
     body: "{}"
   });
   if (!r.ok){
+    if (r.status === 503) throw new Error("Perangkat sedang offline dan kunci publik belum tersimpan di cache. Sambungkan sebentar ke internet agar kunci tersimpan — setelah itu pemeriksaan tetap jalan tanpa internet.");
     if (r.status === 404) throw new Error("RPC public_signing_keys belum ada di server — jalankan ulang supabase/schema.sql versi terbaru.");
     throw new Error("Gagal mengambil kunci publik dari server (HTTP " + r.status + ").");
   }
@@ -10490,7 +10497,7 @@ function scanFromFile(file){
 }
 
 window.CekKeaslian = {
-  version: "v2.60",
+  version: "v2.70",
   decodeQR: (data, w, h) => decodeImageData(data, w, h, true),
   startScanner, stopScanner, doCheck
 };
@@ -10520,6 +10527,22 @@ window.CekKeaslian = {
   $("btnScanFile").addEventListener("click", ()=>{ $("fileScan").click(); });
   $("fileScan").addEventListener("change", ()=>{ scanFromFile($("fileScan").files[0]); $("fileScan").value = ""; });
   window.addEventListener("pagehide", stopScanner);
+  // PWA: service worker hanya di konteks aman (https/localhost) + tombol instal
+  if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost" || location.hostname === "127.0.0.1")){
+    window.addEventListener("load", ()=>{ navigator.serviceWorker.register("sw.js").catch(()=>{}); });
+  }
+  let deferredInstall = null;
+  window.addEventListener("beforeinstallprompt", (e)=>{
+    e.preventDefault(); deferredInstall = e;
+    const bI = $("btnInstall"); if (bI) bI.classList.remove("hide");
+  });
+  window.addEventListener("appinstalled", ()=>{ const bI = $("btnInstall"); if (bI) bI.classList.add("hide"); deferredInstall = null; });
+  $("btnInstall").addEventListener("click", async ()=>{
+    if (!deferredInstall) return;
+    const bI = $("btnInstall"); bI.disabled = true;
+    try{ await deferredInstall.prompt(); await deferredInstall.userChoice; }catch(e){}
+    bI.disabled = false; bI.classList.add("hide"); deferredInstall = null;
+  });
 })();
 </script>
 </body>
