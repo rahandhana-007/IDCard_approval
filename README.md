@@ -217,14 +217,17 @@ Bila ruang sempit: pilih ECL **L** dan aktifkan **Key ID ringkas**.
 | Berkas | Keterangan |
 |---|---|
 | `KartuSign.html` | **Aplikasi jadi** — satu file, siap pakai/dibagikan |
+| `CekKeaslian.html` | **Platform cek keaslian kartu** — satu file, TANPA login: **scan QR lewat kamera/foto** atau tempel payload → verdict ASLI/TIDAK ASLI (kunci publik diambil live dari server) |
+| `cek.template.html` | Sumber platform cek keaslian — edit di sini |
 | `contoh-kartu.png` | Kartu contoh (ID-1 300 dpi) untuk mencoba aplikasi |
 | `app.template.html` | Sumber aplikasi (tanpa library QR) — edit di sini |
 | `qrcode-generator.js` | Library QR (Kazuhiko Arase, MIT) yang ditanam saat build |
+| `jsqr.js` | Library **decoder** QR (jsQR 1.4.0, Apache-2.0) yang ditanam ke `CekKeaslian.html` saat build |
 | `build.py` | Merakit `KartuSign.html` dari template + library (sekalian menulis `preview/` & `deploy/`) |
 | `supabase/schema.sql` | **Skema database Supabase** (tabel + trigger + kebijakan RLS) — jalankan di SQL Editor |
 | `supabase/keep-alive.yml` | Template cron **GitHub Actions** — heartbeat anti-pause tiap 3 hari (lihat *Menjaga Supabase tetap aktif*) |
-| `deploy/` | Folder siap deploy Netlify (`index.html` + `netlify.toml` + contoh kartu) |
-| `test.js` | Uji end-to-end otomatis (**191 kasus**) memakai jsdom + **mock server Supabase** (Auth/PostgREST/RLS), termasuk alur lintas-perangkat user→manager dan build+uji `IDCardManagement-Verifier.html` |
+| `deploy/` | Folder siap deploy Netlify (`index.html` + `cek-keaslian.html` + `netlify.toml` + contoh kartu) |
+| `test.js` | Uji end-to-end otomatis (**198 kasus**) memakai jsdom + **mock server Supabase** (Auth/PostgREST/RLS), termasuk alur lintas-perangkat user→manager dan build+uji `IDCardManagement-Verifier.html` |
 | `qrtest.js` | Uji round-trip QR: payload → matriks → decode |
 | `make_sample.py` | Pembangkit `contoh-kartu.png` |
 
@@ -258,6 +261,7 @@ cd preview && python3 -m http.server 8080 --bind 0.0.0.0
 ## Lisensi komponen
 
 - QR Code Generator — Kazuhiko Arase, MIT License (ditanam di dalam file).
+- jsQR 1.4.0 — Cosmo Wolfe, **Apache License 2.0** (ditanam di `CekKeaslian.html` untuk modul barcode scanner).
 - Selebihnya kode aplikasi ini bebas Anda pakai dan ubah sesuai kebutuhan instansi.
 
 ---
@@ -319,9 +323,34 @@ Config koneksi (URL + anon key) tersimpan di **localStorage → per browser & pe
 
 Catatan: **login tetap perlu sekali per browser** — token sesi adalah kredensial dan sengaja tidak dibagi antar browser demi keamanan.
 
+## Platform Cek Keaslian (publik, tanpa login)
+
+**`CekKeaslian.html`** — satu file standalone untuk petugas/pemegang kartu memeriksa keaslian: **satu textbox** untuk menempel isi QR, tanpa login, tanpa panel lain.
+
+- Kunci publik penerbit diambil **live dari Supabase** lewat RPC `public_signing_keys()` (boleh anonim — hanya kolom publik `alg/kid/pubkey_pem` yang dipaparkan; blob privat terenkripsi tidak pernah keluar). Kunci berganti/rotasi → platform otomatis mengikuti, tanpa build ulang.
+- **Modul barcode scanner** (v2.60): tombol **📷 Scan QR (kamera)** — video live dengan bingkai pandu, decode lokal tiap ±220 ms (jsQR, tanpa unggah gambar apa pun), putusan otomatis begitu QR terbaca; **💡 Senter** bila perangkat mendukung; **🖼 Scan dari foto** untuk foto/berkas QR. Kamera butuh HTTPS + izin; bila tidak tersedia, muncul pesan jelas dan jalur tempel manual/foto tetap berfungsi.
+- Mesin verifikasi **identik** dengan aplikasi utama (canonical string KS3/KS2, ECDSA P-256 / RSA-2048, token `MP`/`PS1` diekspansi saat tampil) → putusan konsisten: `✓ KARTU INI ASLI` / `✗ KARTU TIDAK ASLI` + alasan spesifik (payload rusak, kid tak dikenal, tanda tangan tidak cocok) + detail kartu + peringatan bila masa berlaku habis.
+- Koneksi server ikut tertanam saat `python3 build.py` (dari `supabase/config.json`), juga mendukung link `?sb_url=…&sb_key=…` dan config localStorage.
+- Deploy Netlify: file ada di `deploy/cek-keaslian.html` → URL publik `https://situs-anda/cek-keaslian.html`. Pratinjau lokal: `http://localhost:8080/cek-keaslian.html`.
+- ⚠️ Butuh **`supabase/schema.sql`** terbaru (RPC `public_signing_keys`).
+
 ## Catatan rilis
 
-> **Konvensi versi (permintaan pengguna):** setiap revisi, versi pada judul ikut dinaikkan **+0.10** — `<title>`, `<h1>` ("ID Card Management v2.40"), konstanta `APP_VERSION` di template, judul verifier, dan README. Revisi berikutnya = v2.50, dst.
+> **Konvensi versi (permintaan pengguna):** setiap revisi, versi pada judul ikut dinaikkan **+0.10** — `<title>`, `<h1>` ("ID Card Management v2.60"), konstanta `APP_VERSION` di template, judul verifier, platform cek keaslian, dan README. Revisi berikutnya = v2.70, dst.
+
+**v2.60 (revisi atas masukan pengguna — modul barcode scanner di platform cek keaslian)**
+
+- `CekKeaslian.html` kini punya **modul barcode scanner**: **📷 Scan QR (kamera)** (video live + bingkai pandu, decode lokal jsQR tiap ±220 ms, verdict otomatis begitu terbaca, tombol **💡 Senter** bila didukung, kamera mati otomatis setelah terbaca/ditutup) dan **🖼 Scan dari foto** (unggah/potret file gambar). Tidak ada gambar yang diunggah ke server — decode 100% lokal. Kamera memerlukan HTTPS + izin; tanpa kamera, pesan error jelas muncul dan jalur foto/tempel manual tetap jalan.
+- Library decoder **jsQR 1.4.0 (Apache-2.0)** ditanam saat build (`jsqr.js` + placeholder `/*JSQR_LIB*/` di `cek.template.html`) — file tetap standalone.
+- Versi judul (aplikasi utama + platform cek) naik menjadi **v2.60**. Tidak ada perubahan skema database.
+- Uji otomatis: 195 → **198 kasus** (elemen scanner ada; bitmap QR payload asli ter-decode utuh oleh jsQR tertanam; tanpa dukungan kamera → pesan jelas, tidak crash).
+
+**v2.50 (revisi atas masukan pengguna — platform khusus cek keaslian, tanpa login)**
+
+- Artefak baru **`CekKeaslian.html`**: platform standalone pemeriksaan keaslian kartu — **tanpa login**, hanya **satu textbox** untuk menempel payload QR + tombol *Periksa Keaslian*. Verdict `✓ KARTU INI ASLI` / `✗ KARTU TIDAK ASLI` dengan alasan spesifik + detail kartu (ID, pemegang, penetap, berlaku, keterangan, waktu terbit, algoritma/Key ID) + chip merah bila kedaluwarsa. Kunci publik penerbit diambil live dari server (RPC anon baru `public_signing_keys()` — hanya kolom publik, blob privat tidak pernah dipaparkan). Ikut ter-deploy ke Netlify sebagai `/cek-keaslian.html` dan pratinjau lokal `:8080/cek-keaslian.html`.
+- Versi judul aplikasi utama ikut naik menjadi **v2.50** (konvensi versi).
+- ⚠️ **Wajib jalankan ulang `supabase/schema.sql`** (menambah RPC `public_signing_keys`; aman dijalankan berulang).
+- Uji otomatis: 191 → **195 kasus** (platform terbuka tanpa login; payload asli → ASLI + detail; payload diubah → TIDAK ASLI; JSON rusak → pesan jelas).
 
 **v2.40 (revisi atas masukan pengguna — reset counter nomor kartu ke 0001)**
 

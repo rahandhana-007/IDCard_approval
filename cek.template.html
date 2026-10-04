@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cek Keaslian Kartu v2.60 — ID Card Management</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2064%2064'%3E%3Cdefs%3E%3ClinearGradient%20id='g'%20x1='0'%20y1='0'%20x2='1'%20y2='1'%3E%3Cstop%20offset='0'%20stop-color='%234f46e5'/%3E%3Cstop%20offset='1'%20stop-color='%236d28d9'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect%20x='4'%20y='12'%20width='56'%20height='40'%20rx='7'%20fill='url(%23g)'/%3E%3Crect%20x='4'%20y='20'%20width='56'%20height='8'%20fill='%231e1b4b'/%3E%3Crect%20x='10'%20y='35'%20width='13'%20height='10'%20rx='2.5'%20fill='%23fbbf24'/%3E%3Crect%20x='29'%20y='37'%20width='25'%20height='3.5'%20rx='1.75'%20fill='%23c7d2fe'/%3E%3Crect%20x='29'%20y='44'%20width='16'%20height='3.5'%20rx='1.75'%20fill='%23a5b4fc'/%3E%3C/svg%3E">
+<style>
+:root{--brand:#4f46e5;--ink:#0f172a;--muted:#64748b;--line:#e2e8f0;--line2:#cbd5e1;--ok:#047857;--okbg:#ecfdf5;--err:#b91c1c;--errbg:#fef2f2}
+*{box-sizing:border-box}
+body{margin:0;font-family:ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;color:var(--ink);background:linear-gradient(180deg,#f6f7ff,#eef1f8);min-height:100vh}
+header{background:linear-gradient(135deg,#312e81,#4f46e5 55%,#6d28d9);color:#fff;padding:22px 20px;display:flex;gap:14px;align-items:center}
+header .logo{width:44px;height:44px;flex:0 0 auto;border-radius:12px;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.22);display:flex;align-items:center;justify-content:center}
+header .logo svg{width:26px;height:26px}
+h1{font-size:20px;margin:0;letter-spacing:.01em}
+.sub{margin:3px 0 0;font-size:12px;color:#c7d2fe}
+main{max-width:780px;margin:22px auto;padding:0 16px}
+.card{background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:0 8px 24px rgba(15,23,42,.06);margin-bottom:18px;overflow:hidden}
+.card h2{margin:0;padding:15px 18px;border-bottom:1px solid var(--line);font-size:15px}
+.body{padding:18px}
+textarea{width:100%;min-height:150px;padding:12px;border:1px solid var(--line2);border-radius:12px;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:12.5px;color:var(--ink);resize:vertical;transition:.15s;box-shadow:inset 0 1px 2px rgba(15,23,42,.04)}
+textarea:focus{outline:none;border-color:var(--brand);box-shadow:0 0 0 3px rgba(79,70,229,.15)}
+.btn{appearance:none;border:1px solid var(--line2);background:#fff;color:var(--ink);padding:11px 16px;border-radius:12px;font:inherit;font-size:14px;font-weight:650;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;transition:.15s;box-shadow:0 1px 2px rgba(15,23,42,.05)}
+.btn:hover{background:#f8fafc;border-color:#94a3b8}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn.primary{background:linear-gradient(135deg,#4f46e5 0%,#6d28d9 100%);border-color:#4f46e5;color:#fff;box-shadow:0 8px 20px rgba(79,70,229,.35)}
+.btn.primary:hover{filter:brightness(1.08)}
+.btn.wide{width:100%;margin-top:12px}
+.btn svg{width:17px;height:17px}
+.hint{font-size:12.5px;color:var(--muted);margin:8px 0 0;line-height:1.55}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+.result{margin-top:16px;border-radius:14px;padding:16px 18px;border:1px solid var(--line)}
+.result.ok{background:var(--okbg);border-color:#a7f3d0}
+.result.err{background:var(--errbg);border-color:#fecaca}
+.result h3{margin:0 0 6px;font-size:19px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.result.ok h3{color:var(--ok)}
+.result.err h3{color:var(--err)}
+.chip{display:inline-block;padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700;background:#eef2ff;color:#3730a3;border:1px solid #c7d2fe;letter-spacing:.02em}
+.chip.green{background:#ecfdf5;color:#047857;border-color:#a7f3d0}
+.chip.red{background:#fef2f2;color:#b91c1c;border-color:#fecaca}
+dl.kv{display:grid;grid-template-columns:160px 1fr;gap:7px 14px;margin:12px 0 0;font-size:13.5px}
+dl.kv dt{color:var(--muted);font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:.04em}
+dl.kv dd{margin:0;word-break:break-word}
+footer{text-align:center;color:var(--muted);font-size:12px;padding:20px}
+.hide{display:none!important}
+.btnrow{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.btnrow .btn{flex:1 1 auto}
+.btn.danger{color:#b91c1c;border-color:#fecaca}
+.btn.danger:hover{background:#fef2f2}
+.scanwrap{position:relative;margin-top:12px;border-radius:14px;overflow:hidden;background:#0f172a}
+.scanwrap video{display:block;width:100%;max-height:52vh;object-fit:cover}
+.scanframe{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none}
+.scanframe::before{content:"";width:62%;max-height:70%;aspect-ratio:1/1;border:3px solid rgba(255,255,255,.92);border-radius:16px;box-shadow:0 0 0 9999px rgba(15,23,42,.4)}
+ol.steps{margin:8px 0 0;padding-left:20px;font-size:13px;color:#334155;line-height:1.7}
+@media(max-width:560px){dl.kv{grid-template-columns:1fr}h1{font-size:17px}}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">
+    <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2.5"/><path d="M2 10h20"/><rect x="5" y="13" width="4" height="3" rx="1" fill="#fbbf24" stroke="none"/><path d="M12 14.5h7M12 17h4"/></svg>
+  </div>
+  <div>
+    <h1>Cek Keaslian Kartu v2.60</h1>
+    <p class="sub">Purchasing - Raw Material Section | ID Card Vendor Representative Approval</p>
+  </div>
+</header>
+
+<main>
+  <section class="card">
+    <h2>Periksa keaslian kartu</h2>
+    <div class="body">
+      <p class="hint" style="margin-top:0">Tempel <b>isi QR code</b> kartu (payload) ke kotak di bawah, lalu tekan <b>Periksa Keaslian</b>. <b>Tanpa login</b> — tanda tangan digital diverifikasi di browser Anda memakai <b>kunci publik resmi</b> yang diambil langsung dari server.</p>
+      <textarea id="cekPayload" spellcheck="false" autocomplete="off" placeholder='Tempel payload QR di sini — contoh: {"v":3,"alg":"ES256","kid":"2eb35a","ts":1790000000,...}'></textarea>
+      <div class="btnrow">
+        <button class="btn" id="btnScan" type="button">📷 Scan QR (kamera)</button>
+        <button class="btn" id="btnScanFile" type="button">🖼 Scan dari foto</button>
+        <input type="file" id="fileScan" accept="image/*" capture="environment" class="hide">
+      </div>
+      <div id="scanBox" class="hide">
+        <div class="scanwrap">
+          <video id="scanVideo" playsinline muted></video>
+          <div class="scanframe"></div>
+        </div>
+        <div class="btnrow">
+          <button class="btn hide" id="btnTorch" type="button">💡 Senter</button>
+          <button class="btn danger" id="btnScanStop" type="button">Tutup kamera</button>
+        </div>
+        <p class="hint" id="scanHint">Arahkan QR code kartu ke dalam bingkai…</p>
+      </div>
+      <button class="btn primary wide" id="btnCheck" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 12l2 2 4-4"/><path d="M12 3l7 4v5c0 4.5-3 8.5-7 9-4-.5-7-4.5-7-9V7l7-4z"/></svg>
+        Periksa Keaslian
+      </button>
+      <p class="hint" id="srvInfo"></p>
+      <div id="result" class="result hide"></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Cara memakai</h2>
+    <div class="body">
+      <ol class="steps">
+        <li><b>Paling mudah</b>: tekan <b>📷 Scan QR (kamera)</b> lalu arahkan ke QR code kartu — putusan tampil <b>otomatis</b> begitu QR terbaca. (Butuh HTTPS + izin kamera.)</li>
+        <li>Alternatif: <b>🖼 Scan dari foto</b> (unggah foto QR/kartu), atau tempel manual teks isi QR ke kotak di atas lalu tekan <b>Periksa Keaslian</b>.</li>
+        <li>Putusan tampil seketika: <b style="color:var(--ok)">✓ ASLI</b> (tanda tangan cocok dengan kunci publik penerbit di server) atau <b style="color:var(--err)">✗ TIDAK ASLI</b> (data berubah / tidak diterbitkan instansi ini).</li>
+      </ol>
+      <p class="hint">Privasi: halaman ini tidak meminta data pribadi, tidak memakai cookie, dan tidak menyimpan apa pun. Pemeriksaan kriptografi berjalan 100% di browser Anda (Web Crypto API). Kamera hanya dinyalakan saat Anda menekan tombol <i>Scan QR</i>, dan langsung dimatikan begitu QR terbaca atau panel ditutup.</p>
+    </div>
+  </section>
+</main>
+
+<footer>- Purchasing Departmen -</footer>
+
+<script>/*JSQR_LIB*/</script>
+<script>
+"use strict";
+/* =====================================================================
+   PLATFORM CEK KEASLIAN KARTU — standalone, TANPA login.
+   Satu textbox payload QR → verdict ASLI / TIDAK ASLI.
+   Mesin verifikasi identik dengan aplikasi ID Card Management:
+   canonical string KS3/KS2 + ECDSA P-256 / RSA-2048 (Web Crypto).
+   Kunci publik penerbit diambil dari Supabase RPC public_signing_keys
+   (boleh anonim — hanya kunci PUBLIK yang dipaparkan; blob privat tidak).
+   Koneksi server: parameter URL ?sb_url&sb_key > build tertanam > localStorage.
+   ===================================================================== */
+const EMBEDDED_SB_URL = "/*SB_URL*/";
+const EMBEDDED_SB_KEY = "/*SB_KEY*/";
+const LS_CFG = "kartusign.sb.config.v1";
+const enc = new TextEncoder();
+const $ = (id) => document.getElementById(id);
+function esc(s){ return String(s == null ? "" : s).replace(/[&<>"']/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;" }[c])); }
+
+/* ---------------- konfigurasi server ---------------- */
+function getSbConfig(){
+  try{
+    const p = new URL(location.href).searchParams;
+    const u = (p.get("sb_url") || p.get("sburl") || "").trim(), k = (p.get("sb_key") || p.get("sbkey") || "").trim();
+    if (u && k) return { url: u, key: k };
+  }catch(e){}
+  if (EMBEDDED_SB_URL && EMBEDDED_SB_KEY && EMBEDDED_SB_URL.indexOf("/*SB_") !== 0) return { url: EMBEDDED_SB_URL, key: EMBEDDED_SB_KEY };
+  try{
+    const raw = localStorage.getItem(LS_CFG);
+    if (raw){ const c = JSON.parse(raw); if (c && c.url && c.key) return { url: String(c.url), key: String(c.key) }; }
+  }catch(e){}
+  return null;
+}
+
+/* ---------------- kriptografi (identik dengan aplikasi utama) ---------------- */
+const ALG = {
+  ES256: { genParams: { name:"ECDSA", namedCurve:"P-256" } },
+  RS256: { genParams: { name:"RSASSA-PKCS1-v1_5", modulusLength:2048, publicExponent:new Uint8Array([1,0,1]), hash:"SHA-256" } }
+};
+function b64uToBytes(str){
+  str = String(str).trim().replace(/-/g,"+").replace(/_/g,"/");
+  while (str.length % 4) str += "=";
+  const bin = atob(str);
+  const out = new Uint8Array(bin.length);
+  for (let i=0;i<bin.length;i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+function pemToDer(pem){
+  const body = pem.replace(/-----BEGIN [^-]+-----/g,"").replace(/-----END [^-]+-----/g,"").replace(/\s+/g,"");
+  return b64uToBytes(body);
+}
+const OPTIONAL_FIELDS = ["cid","hld","apr","exp","rsn","sh","ss"];
+const FIXED_TEXT = {
+  "MP":  "Manager Purchasing",
+  "PS1": "Kartu ini dinyatakan Sah dan Asli di keluarkan oleh Purchasing Section"
+};
+function expandFixed(v){ return FIXED_TEXT[v] || (v || ""); }
+function normalizePayload(o){
+  const out = { ...o };
+  for (const k of OPTIONAL_FIELDS) if (out[k] == null) out[k] = "";
+  return out;
+}
+function canonicalString(obj){
+  const head = [
+    obj.alg, obj.kid, String(obj.ts),
+    obj.cid||"", obj.hld||"", obj.apr||"", obj.exp||"", obj.rsn||"", obj.h||""
+  ];
+  if ((obj.v || 1) >= 3) return ["KS3", ...head, obj.sh||"", obj.ss||""].join("|");
+  return ["KS2", ...head].join("|");
+}
+function kidMatch(a, b){
+  if (!a || !b) return true;
+  return a === b || a.startsWith(b) || b.startsWith(a);
+}
+async function verifySignatureOf(obj, publicKey){
+  const cs = canonicalString(obj);
+  const digest = await crypto.subtle.digest("SHA-256", enc.encode(cs));
+  const params = obj.alg === "ES256" ? { name:"ECDSA", hash:"SHA-256" } : { name:"RSASSA-PKCS1-v1_5" };
+  return crypto.subtle.verify(params, publicKey, b64uToBytes(obj.s), digest);
+}
+async function importPublicPem(pem, alg){
+  return crypto.subtle.importKey("spki", pemToDer(pem), ALG[alg].genParams, true, ["verify"]);
+}
+
+/* ---------------- ambil kunci publik penerbit dari server (anon) ---------------- */
+async function fetchPublicKeys(cfg){
+  const r = await fetch(cfg.url.replace(/\/+$/, "") + "/rest/v1/rpc/public_signing_keys", {
+    method: "POST",
+    headers: { "apikey": cfg.key, "Content-Type": "application/json" },
+    body: "{}"
+  });
+  if (!r.ok){
+    if (r.status === 404) throw new Error("RPC public_signing_keys belum ada di server — jalankan ulang supabase/schema.sql versi terbaru.");
+    throw new Error("Gagal mengambil kunci publik dari server (HTTP " + r.status + ").");
+  }
+  const rows = await r.json();
+  return Array.isArray(rows) ? rows : [];
+}
+
+/* ---------------- tampilan hasil ---------------- */
+function fmtDate(ts){
+  const d = new Date(Number(ts) * 1000);
+  if (isNaN(d.getTime())) return "—";
+  return d.toLocaleDateString("id-ID", { day:"2-digit", month:"short", year:"numeric" }) + ", " +
+         d.toLocaleTimeString("id-ID", { hour:"2-digit", minute:"2-digit" });
+}
+function show(cls, html){
+  const out = $("result");
+  out.className = "result " + cls;
+  out.innerHTML = html;
+}
+function showErr(title, msg){
+  show("err", `<h3>✗ ${esc(title)}</h3><p class="hint" style="margin:0">${msg}</p>`);
+}
+
+/* ---------------- pemeriksaan ---------------- */
+async function doCheck(){
+  const btn = $("btnCheck"); btn.disabled = true;
+  try{
+    const txt = $("cekPayload").value.trim();
+    if (!txt){ showErr("BELUM ADA DATA", "Tempelkan terlebih dahulu isi QR code kartu ke kotak di atas."); return; }
+    let obj;
+    try { obj = JSON.parse(txt); }
+    catch(e){ showErr("KARTU TIDAK ASLI", "Payload tidak valid — isi QR bukan JSON yang utuh. Salin ulang seluruh teks QR tanpa terpotong."); return; }
+    if (!(obj.v === 2 || obj.v === 3)){
+      showErr("KARTU TIDAK ASLI", "Format payload lama (v" + esc(obj.v || 1) + ") tidak didukung platform ini. Tanda tangani ulang kartunya dengan aplikasi versi sekarang.");
+      return;
+    }
+    obj = normalizePayload(obj);
+    if (!obj.s || !obj.h){ showErr("KARTU TIDAK ASLI", "Payload tidak lengkap — field tanda tangan (s) atau hash (h) tidak ditemukan."); return; }
+    if (!ALG[obj.alg]){ showErr("KARTU TIDAK ASLI", "Algoritma tidak dikenal: " + esc(obj.alg || "—")); return; }
+
+    const cfg = getSbConfig();
+    if (!cfg){ showErr("HALAMAN BELUM DIKONFIGURASI", "Koneksi server tidak ditemukan. Buka halaman ini dari build/link resmi (parameter <span class='mono'>?sb_url=…&sb_key=…</span>)."); return; }
+
+    let keys;
+    try { keys = await fetchPublicKeys(cfg); }
+    catch(e){ showErr("SERVER TIDAK TERJANGKAU", esc(e.message || e)); return; }
+    if (!keys.length){ showErr("SERVER BELUM PUNYA KUNCI", "Belum ada kunci penandatangan di server — manager harus membuat kunci terlebih dahulu di aplikasi ID Card Management."); return; }
+
+    const cands = keys.filter(k => k && k.alg === obj.alg && k.pubkey_pem && kidMatch(k.kid, obj.kid));
+    if (!cands.length){
+      showErr("KARTU TIDAK ASLI", "Kunci publik penerbit dengan Key ID <span class='mono'>" + esc(obj.kid || "—") + "</span> tidak ditemukan di server. Kartu tidak diterbitkan oleh instansi ini, atau kunci penerbit sudah dihapus.");
+      return;
+    }
+    let sigOk = false, used = null;
+    for (const c of cands){
+      try{
+        const pub = await importPublicPem(c.pubkey_pem, c.alg);
+        if (await verifySignatureOf(obj, pub)){ sigOk = true; used = c; break; }
+      }catch(e){}
+    }
+    if (!sigOk){
+      showErr("KARTU TIDAK ASLI", "Tanda tangan digital <b>tidak cocok</b> dengan isi payload — data kartu pernah diubah, atau payload tidak ditandatangani oleh kunci resmi instansi ini.");
+      return;
+    }
+    const expired = obj.exp ? (new Date(obj.exp + "T23:59:59").getTime() < Date.now()) : false;
+    show("ok", `<h3>✓ KARTU INI ASLI <span class="chip green">tanda tangan digital valid</span>${expired ? ' <span class="chip red">masa berlaku habis</span>' : ""}</h3>
+      <dl class="kv">
+        <dt>ID kartu</dt><dd class="mono">${esc(obj.cid || "—")}</dd>
+        <dt>Pemegang</dt><dd>${esc(obj.hld || "—")}</dd>
+        <dt>Ditetapkan</dt><dd>${esc(expandFixed(obj.apr) || "—")}</dd>
+        <dt>Berlaku hingga</dt><dd>${esc(obj.exp || "—")}</dd>
+        <dt>Keterangan</dt><dd>${esc(expandFixed(obj.rsn) || "—")}</dd>
+        <dt>Diterbitkan</dt><dd>${esc(fmtDate(obj.ts))}</dd>
+        <dt>Algoritma</dt><dd>${esc(obj.alg)} · Key ID <span class="mono">${esc(used.kid || obj.kid || "—")}</span></dd>
+      </dl>
+      <p class="hint">Tanda tangan diverifikasi terhadap kunci publik penerbit dari server. Hash gambar kartu terikat di dalam payload (<span class="mono">${esc(String(obj.h).slice(0,12))}…</span>)${obj.sh ? ' beserta hash tanda tangan basah manager (<span class="mono">' + esc(String(obj.sh).slice(0,12)) + "…</span>)" : ""}.</p>`);
+  } finally { btn.disabled = false; }
+}
+
+/* ---------------- modul barcode scanner (jsQR + kamera) ----------------
+   Kamera (getUserMedia) butuh konteks aman: https:// atau localhost.
+   Decode berjalan lokal di browser (jsQR, Apache-2.0) — tidak ada gambar
+   yang diunggah ke server. Hasil scan → textarea → doCheck() otomatis. */
+let scanStream = null, scanTimer = null, scanTrack = null, torchOn = false;
+function decodeImageData(data, w, h, both){
+  try{
+    const r = jsQR(data, w, h, { inversionAttempts: both ? "attemptBoth" : "dontInvert" });
+    return (r && r.data) ? String(r.data) : "";
+  }catch(e){ return ""; }
+}
+async function startScanner(){
+  if (typeof jsQR !== "function"){ showErr("LIBRARY SCANNER TIDAK TERMUAT", "Berkas halaman ini tidak memuat library QR (jsQR). Build ulang dengan build.py."); return; }
+  if (scanStream) return;
+  if (!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia)){
+    showErr("KAMERA TIDAK TERSEDIA", "Browser/koneksi ini tidak mengizinkan akses kamera (butuh <b>https://</b> atau localhost). Pakai <b>Scan dari foto</b>, atau tempel payload manual lalu tekan Periksa Keaslian.");
+    return;
+  }
+  try{
+    scanStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false });
+  }catch(e){
+    showErr("KAMERA DITOLAK", "Akses kamera ditolak atau tidak tersedia (" + esc(e.name || e.message || e) + "). Izinkan kamera di browser, atau pakai <b>Scan dari foto</b> / tempel manual.");
+    return;
+  }
+  const v = $("scanVideo");
+  v.srcObject = scanStream;
+  try { await v.play(); } catch(e){}
+  scanTrack = scanStream.getVideoTracks()[0];
+  let caps = {};
+  try { caps = (scanTrack && scanTrack.getCapabilities) ? (scanTrack.getCapabilities() || {}) : {}; } catch(e){}
+  $("btnTorch").classList.toggle("hide", !caps.torch);
+  torchOn = false; $("btnTorch").textContent = "💡 Senter";
+  $("scanBox").classList.remove("hide");
+  $("scanHint").textContent = "Arahkan QR code kartu ke dalam bingkai…";
+  const c2 = document.createElement("canvas");
+  const tick = ()=>{
+    if (!scanStream) return;
+    if (v.readyState >= 2 && v.videoWidth){
+      const scale = Math.min(1, 960 / v.videoWidth);
+      c2.width = Math.max(1, Math.round(v.videoWidth * scale));
+      c2.height = Math.max(1, Math.round(v.videoHeight * scale));
+      const ctx = c2.getContext("2d", { willReadFrequently: true });
+      if (ctx){
+        ctx.drawImage(v, 0, 0, c2.width, c2.height);
+        try{
+          const img = ctx.getImageData(0, 0, c2.width, c2.height);
+          const text = decodeImageData(img.data, img.width, img.height, false);
+          if (text){ onScanResult(text); return; }
+        }catch(e){}
+      }
+    }
+    scanTimer = setTimeout(tick, 220);
+  };
+  tick();
+}
+function stopScanner(){
+  if (scanTimer){ clearTimeout(scanTimer); scanTimer = null; }
+  if (scanStream){ try{ scanStream.getTracks().forEach(t=>t.stop()); }catch(e){} scanStream = null; }
+  scanTrack = null;
+  const v = $("scanVideo"); if (v) v.srcObject = null;
+  const box = $("scanBox"); if (box) box.classList.add("hide");
+}
+function onScanResult(text){
+  stopScanner();
+  $("cekPayload").value = text;
+  doCheck();   // putusan otomatis begitu QR terbaca
+}
+async function toggleTorch(){
+  if (!scanTrack) return;
+  try{
+    torchOn = !torchOn;
+    await scanTrack.applyConstraints({ advanced: [{ torch: torchOn }] });
+    $("btnTorch").textContent = torchOn ? "💡 Senter aktif" : "💡 Senter";
+  }catch(e){ torchOn = !torchOn; }
+}
+function scanFromFile(file){
+  if (!file) return;
+  if (typeof jsQR !== "function"){ showErr("LIBRARY SCANNER TIDAK TERMUAT", "Berkas halaman ini tidak memuat library QR (jsQR). Build ulang dengan build.py."); return; }
+  const fr = new FileReader();
+  fr.onload = ()=>{
+    const img = new Image();
+    img.onload = ()=>{
+      const scale = Math.min(1, 1600 / Math.max(img.naturalWidth || 1, img.naturalHeight || 1));
+      const c3 = document.createElement("canvas");
+      c3.width = Math.max(1, Math.round((img.naturalWidth || 1) * scale));
+      c3.height = Math.max(1, Math.round((img.naturalHeight || 1) * scale));
+      const ctx = c3.getContext("2d", { willReadFrequently: true });
+      let text = "";
+      if (ctx){
+        ctx.drawImage(img, 0, 0, c3.width, c3.height);
+        try{
+          const d = ctx.getImageData(0, 0, c3.width, c3.height);
+          text = decodeImageData(d.data, d.width, d.height, true);
+        }catch(e){}
+      }
+      if (text){ $("cekPayload").value = text; doCheck(); }
+      else showErr("QR TIDAK TERBACA", "Tidak ada QR code yang terbaca di foto itu. Coba foto lebih dekat dan terang (hindari bayangan/silau), atau tempel payload manual.");
+    };
+    img.onerror = ()=> showErr("GAGAL MEMBACA FOTO", "File gambar tidak dapat dibaca (rusak atau format tidak didukung).");
+    img.src = fr.result;
+  };
+  fr.onerror = ()=> showErr("GAGAL MEMBACA FOTO", "File tidak dapat dibaca.");
+  fr.readAsDataURL(file);
+}
+
+window.CekKeaslian = {
+  version: "v2.60",
+  decodeQR: (data, w, h) => decodeImageData(data, w, h, true),
+  startScanner, stopScanner, doCheck
+};
+
+/* ---------------- init ---------------- */
+(function init(){
+  if (!(window.crypto && crypto.subtle)){
+    document.body.insertAdjacentHTML("afterbegin",
+      '<div style="background:#fef2f2;color:#7f1d1d;padding:14px;text-align:center;font-weight:600">Browser/koneksi ini tidak mendukung Web Crypto API. Buka halaman lewat https:// atau localhost.</div>');
+    $("btnCheck").disabled = true;
+  }
+  const cfg = getSbConfig();
+  const info = $("srvInfo");
+  if (cfg){
+    let host = cfg.url; try { host = new URL(cfg.url).host; } catch(e){}
+    info.innerHTML = "Kunci publik diambil langsung dari server: <b class='mono'>" + esc(host) + "</b>";
+  } else {
+    info.innerHTML = "<span style='color:var(--err)'>Koneksi server belum dikonfigurasi pada halaman ini.</span>";
+  }
+  $("btnCheck").addEventListener("click", doCheck);
+  $("cekPayload").addEventListener("keydown", (e)=>{
+    if ((e.ctrlKey || e.metaKey) && e.key === "Enter") doCheck();
+  });
+  $("btnScan").addEventListener("click", startScanner);
+  $("btnScanStop").addEventListener("click", stopScanner);
+  $("btnTorch").addEventListener("click", toggleTorch);
+  $("btnScanFile").addEventListener("click", ()=>{ $("fileScan").click(); });
+  $("fileScan").addEventListener("change", ()=>{ scanFromFile($("fileScan").files[0]); $("fileScan").value = ""; });
+  window.addEventListener("pagehide", stopScanner);
+})();
+</script>
+</body>
+</html>

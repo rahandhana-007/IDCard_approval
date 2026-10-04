@@ -31,5 +31,18 @@ dep = pathlib.Path("deploy")
 dep.mkdir(exist_ok=True)
 (dep / "index.html").write_text(out, encoding="utf-8")
 
+# platform cek keaslian (standalone, tanpa login) — koneksi tertanam sama
+cek_tpl = pathlib.Path("cek.template.html")
+if cek_tpl.exists():
+    cek = cek_tpl.read_text(encoding="utf-8")
+    cek = cek.replace('"/*SB_URL*/"', json.dumps(_sb_url)).replace('"/*SB_KEY*/"', json.dumps(_sb_key))
+    _jsqr = pathlib.Path("jsqr.js")
+    assert _jsqr.exists(), "jsqr.js tidak ditemukan — library decoder QR untuk platform cek"
+    cek = cek.replace("/*JSQR_LIB*/", _jsqr.read_text(encoding="utf-8"))
+    pathlib.Path("CekKeaslian.html").write_text(cek, encoding="utf-8")
+    (prev / "cek-keaslian.html").write_text(cek, encoding="utf-8")
+    (dep / "cek-keaslian.html").write_text(cek, encoding="utf-8")
+    print("OK -> CekKeaslian.html", len(cek), "bytes (+ preview/ & deploy/ cek-keaslian.html)")
+
 print("OK ->", main, len(out), "bytes")
 print("OK ->", prev / "index.html")

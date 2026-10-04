@@ -278,3 +278,14 @@ begin
 end; $$;
 revoke all on function public.reset_card_seq() from public;
 grant execute on function public.reset_card_seq() to authenticated;
+
+-- ---------- v2.50: kunci PUBLIK untuk platform cek keaslian (tanpa login) ----------
+-- Hanya kolom publik (alg, kid, pubkey_pem) yang dipaparkan — blob privat
+-- terenkripsi (priv_enc) TIDAK pernah keluar. Dipakai oleh CekKeaslian.html.
+create or replace function public.public_signing_keys()
+returns table (alg text, kid text, pubkey_pem text)
+language sql stable security definer set search_path = public as $$
+  select s.alg, s.kid, s.pubkey_pem from public.signing_keys s;
+$$;
+revoke all on function public.public_signing_keys() from public;
+grant execute on function public.public_signing_keys() to anon, authenticated;

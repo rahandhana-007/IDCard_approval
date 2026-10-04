@@ -18,6 +18,12 @@ const htmlEmb = html
   .replace('const EMBEDDED_SB_URL = "";', 'const EMBEDDED_SB_URL = "' + MOCK_BASE + '";')
   .replace('const EMBEDDED_SB_KEY = "";', 'const EMBEDDED_SB_KEY = "' + APIKEY + '";');
 
+/* Platform cek keaslian (v2.50) — koneksi tertanam dinetralkan; config datang dari seedConfig */
+const cekRaw = fs.readFileSync(path.join(__dirname, 'CekKeaslian.html'), 'utf8');
+const cekHtml = cekRaw
+  .replace(/const EMBEDDED_SB_URL = "[^"]*";/, 'const EMBEDDED_SB_URL = "";')
+  .replace(/const EMBEDDED_SB_KEY = "[^"]*";/, 'const EMBEDDED_SB_KEY = "";');
+
 /* =====================================================================
    MOCK SUPABASE SERVER (Auth + PostgREST + RLS) — in-memory,
    dibagikan oleh SEMUA window JSDOM → mensimulasikan multi-perangkat.
@@ -156,6 +162,9 @@ async function sbFetch(urlStr, opts) {
     if (!isManager(a)) return resp(403, { code: '42501', message: 'Hanya manager yang dapat mereset nomor kartu' });
     backend.cardSeq = {};
     return resp(200, null);
+  }
+  if (url.includes('/rest/v1/rpc/public_signing_keys')) {   // v2.50: kunci publik utk platform cek (anon boleh)
+    return resp(200, backend.signing_keys.map(k => ({ alg: k.alg, kid: k.kid, pubkey_pem: k.pubkey_pem })));
   }
   if (url.includes('/rest/v1/rpc/update_my_full_name')) {   // v2.3: security-definer RPC
     if (!a) return resp(401, { code: '42501', message: 'RLS' });
@@ -845,6 +854,45 @@ const winA = domA.window, docA = winA.document;
   let seqRejected = false;
   try { await winB.KartuSign._debug.SB.resetCardSeq(); } catch (e) { seqRejected = true; }
   check('Non-manager ditolak server saat reset counter', seqRejected);
+
+  /* ============ 19i. PLATFORM CEK KEASLIAN — PUBLIK, TANPA LOGIN (v2.50) ============ */
+  const domH = makeDom(cekHtml, seedConfig);
+  const winH = domH.window, docH = winH.document;
+  await sleep(500);
+  check('Platform cek: terbuka tanpa login/setup + versi di judul', !!docH.getElementById('cekPayload') && !!docH.getElementById('btnCheck') && !docH.getElementById('liUser') && !docH.querySelector('[data-panel]') && /Cek Keaslian Kartu v\d+\.\d+/.test(docH.title), docH.title);
+  docH.getElementById('cekPayload').value = row1.payload;
+  docH.getElementById('btnCheck').click(); await sleep(900);
+  const resH = docH.getElementById('result');
+  check('Platform cek: payload asli → ✓ ASLI + detail lengkap (anon, kunci dari server)', /✓ KARTU INI ASLI/.test(resH.textContent) && /KTR-REQ-001/.test(resH.textContent) && /Siti Aminah/.test(resH.textContent) && /Manager Purchasing/.test(resH.textContent), resH.textContent.replace(/\s+/g, ' ').slice(0, 100));
+  const forgH = JSON.parse(row1.payload); forgH.hld = 'Bukan Pemegangnya';
+  docH.getElementById('cekPayload').value = JSON.stringify(forgH);
+  docH.getElementById('btnCheck').click(); await sleep(700);
+  check('Platform cek: payload diubah → ✗ TIDAK ASLI', /✗ KARTU TIDAK ASLI/.test(resH.textContent));
+  docH.getElementById('cekPayload').value = '{"v":3,"rusak":';
+  docH.getElementById('btnCheck').click(); await sleep(400);
+  check('Platform cek: JSON rusak → pesan jelas', /Payload tidak valid/.test(resH.textContent));
+
+  /* ============ 19j. MODUL BARCODE SCANNER di platform cek (v2.60) ============ */
+  check('Platform cek: tombol scanner kamera & foto tersedia', !!docH.getElementById('btnScan') && !!docH.getElementById('btnScanFile') && !!docH.getElementById('scanBox') && !!docH.getElementById('scanVideo'));
+  { // bitmap QR asli dari payload row1 → decode lewat jsQR tertanam
+    const qrJ = winA.qrcode(0, 'L');
+    qrJ.addData(row1.payload, 'Byte');
+    qrJ.make();
+    const nJ = qrJ.getModuleCount(), scJ = 8, qJ = 4, WJ = (nJ + qJ * 2) * scJ;
+    const pixJ = new Uint8ClampedArray(WJ * WJ * 4);
+    pixJ.fill(255);
+    for (let rJ = 0; rJ < nJ; rJ++) for (let cJ = 0; cJ < nJ; cJ++) {
+      if (!qrJ.isDark(rJ, cJ)) continue;
+      for (let dy = 0; dy < scJ; dy++) for (let dx = 0; dx < scJ; dx++) {
+        const i = (((rJ + qJ) * scJ + dy) * WJ + ((cJ + qJ) * scJ + dx)) * 4;
+        pixJ[i] = 0; pixJ[i + 1] = 0; pixJ[i + 2] = 0;
+      }
+    }
+    const decodedJ = winH.CekKeaslian.decodeQR(pixJ, WJ, WJ);
+    check('Scanner: jsQR tertanam — bitmap QR payload asli ter-decode utuh', decodedJ === row1.payload, String(decodedJ).slice(0, 60));
+  }
+  docH.getElementById('btnScan').click(); await sleep(300);
+  check('Scanner: tanpa dukungan kamera → pesan jelas (tidak crash)', /KAMERA TIDAK TERSEDIA|KAMERA DITOLAK/.test(resH.textContent), resH.textContent.replace(/\s+/g, ' ').slice(0, 80));
 
   /* ============ 20. LOGOUT membersihkan state lokal ============ */
   await D.logout(); await sleep(300);
