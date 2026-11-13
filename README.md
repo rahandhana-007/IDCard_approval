@@ -226,9 +226,9 @@ Bila ruang sempit: pilih ECL **L** dan aktifkan **Key ID ringkas**.
 | `pwa/` | Aset PWA platform cek: `manifest.webmanifest`, `sw.js` (cache offline + kunci publik), `icon-192/512.png` (dibangkitkan `make_icons.py`) — disalin build ke `preview/` & `deploy/` |
 | `build.py` | Merakit `KartuSign.html` dari template + library (sekalian menulis `preview/` & `deploy/`) |
 | `supabase/schema.sql` | **Skema database Supabase** (tabel + trigger + kebijakan RLS) — jalankan di SQL Editor |
-| `supabase/keep-alive.yml` | Template cron **GitHub Actions** — heartbeat anti-pause tiap 3 hari (lihat *Menjaga Supabase tetap aktif*) |
+| `supabase/keep-alive.yml` | Template cron **GitHub Actions** — panggil RPC `keep_alive()` anti-pause tiap 3 hari (lihat *Menjaga Supabase tetap aktif*) |
 | `deploy/` | Folder siap deploy Netlify (`index.html` + `cek-keaslian.html` + `netlify.toml` + contoh kartu) |
-| `test.js` | Uji end-to-end otomatis (**205 kasus**) memakai jsdom + **mock server Supabase** (Auth/PostgREST/RLS), termasuk alur lintas-perangkat user→manager dan build+uji `IDCardManagement-Verifier.html` |
+| `test.js` | Uji end-to-end otomatis (**212 kasus**) memakai jsdom + **mock server Supabase** (Auth/PostgREST/RLS), termasuk alur lintas-perangkat user→manager dan build+uji `IDCardManagement-Verifier.html` |
 | `qrtest.js` | Uji round-trip QR: payload → matriks → decode |
 | `make_sample.py` | Pembangkit `contoh-kartu.png` |
 
@@ -285,10 +285,10 @@ Supabase **free tier** mem-pause proyek bila **tidak ada aktivitas API/database 
 1. **Heartbeat bawaan aplikasi (otomatis, tanpa konfigurasi)** — setiap aplikasi dibuka, login, atau koneksi disimpan — lalu tiap 6 jam selama tab terbuka — aplikasi menulis (upsert) satu baris stempel waktu ke tabel `heartbeat`. Ditrottle: **maksimal satu tulisan per 3 hari** per browser. Syarat: **jalankan ulang `supabase/schema.sql`** sekali agar tabel `heartbeat` terbentuk.
    > Kelemahannya: bila tidak ada yang membuka aplikasi berhari-hari, heartbeat ini tidak berjalan — pakai lapis ke-2.
 2. **Cron eksternal (paling andal, tanpa perlu ada yang membuka aplikasi)**:
-   - **GitHub Actions** (gratis): simpan `supabase/keep-alive.yml` sebagai `.github/workflows/keep-alive.yml` di repositori GitHub mana pun → isi Secrets `SUPABASE_URL` + `SUPABASE_ANON_KEY` (nilai yang sama seperti di panel *Hubungkan ke Supabase*) → workflow meng-upsert `heartbeat` **tiap 3 hari**. Catatan: GitHub menonaktifkan schedule bila repo tidak aktif 60 hari — buka repo sesekali / trigger manual.
-   - **cron-job.org** (tanpa GitHub): buat request baru — Method `POST`; URL `https://xxxx.supabase.co/rest/v1/heartbeat`; Headers `apikey: <anon key>`, `Content-Type: application/json`, `Prefer: resolution=merge-duplicates`; Body `{"id":"cron","last_beat":"2026-01-01T00:00:00Z","note":"cron-job.org"}`; Schedule tiap 3 hari. (Nilai `last_beat` boleh tetap — yang dihitung Supabase adalah adanya request API yang masuk.)
+   - **GitHub Actions** (gratis): simpan `supabase/keep-alive.yml` sebagai `.github/workflows/keep-alive.yml` di repositori GitHub mana pun → isi Secrets `SUPABASE_URL` + `SUPABASE_ANON_KEY` (nilai yang sama seperti di panel *Hubungkan ke Supabase*) → workflow memanggil RPC `keep_alive()` **tiap 3 hari** (baris `cron` ter-update `now()`). Catatan: GitHub menonaktifkan schedule bila repo tidak aktif 60 hari — buka repo sesekali / trigger manual.
+   - **cron-job.org** (tanpa GitHub): buat request baru — Method `POST`; URL `https://xxxx.supabase.co/rest/v1/rpc/keep_alive`; Headers `apikey: <anon key>` dan `Content-Type: application/json`; Body `{"p_note":"cron-job.org"}`; Schedule **tiap hari** (lebih aman — pause terjadi bila ±7 hari tanpa aktivitas). RPC `keep_alive()` (schema v2.90+) meng-upsert baris `cron` dengan `last_beat = now()` sungguhan; balasan HTTP 200 berisi stempel waktunya.
 
-Cek keep-alive bekerja: **Dashboard → Table Editor → tabel `heartbeat`** — kolom `last_beat` baris `app`/`cron` harus ter-update.
+Cek keep-alive bekerja: **Dashboard → Table Editor → tabel `heartbeat`** — `last_beat` baris `app` ter-update tiap aplikasi dibuka; baris `cron` ter-update **dengan waktu nyata** setiap cron berjalan (sejak schema v2.90; sebelumnya tanggalnya statis di body cron). Riwayat eksekusi juga terlihat di log cron-job.org / tab Actions GitHub.
 
 ## Deploy ke Netlify (online)
 
@@ -331,6 +331,7 @@ Catatan: **login tetap perlu sekali per browser** — token sesi adalah kredensi
 - Kunci publik penerbit diambil **live dari Supabase** lewat RPC `public_signing_keys()` (boleh anonim — hanya kolom publik `alg/kid/pubkey_pem` yang dipaparkan; blob privat terenkripsi tidak pernah keluar). Kunci berganti/rotasi → platform otomatis mengikuti, tanpa build ulang.
 - **Modul barcode scanner** (v2.60): tombol **📷 Scan QR (kamera)** — video live dengan bingkai pandu, decode lokal tiap ±220 ms (jsQR, tanpa unggah gambar apa pun), putusan otomatis begitu QR terbaca; **💡 Senter** bila perangkat mendukung; **🖼 Scan dari foto** untuk foto/berkas QR. Kamera butuh HTTPS + izin; bila gagal, pesan diagnosa spesifik per penyebab (v2.80): di dalam iframe/pratinjau → arahan buka URL langsung; tanpa perangkat kamera → KAMERA TIDAK DITEMUKAN; izin ditolak → cara mengizinkan. Jalur tempel manual/foto selalu berfungsi.
 - **PWA (v2.70)**: dapat **di-instal** ke layar utama HP (tampilan *standalone* tanpa address bar, ikon kartu khusus, tombol *⤓ Instal aplikasi* muncul otomatis bila browser menawarkannya) dan **tetap berfungsi offline** — service worker meng-cache halaman + kunci publik penerbit (network-first), sehingga verifikasi keaslian jalan tanpa internet memakai kunci terakhir yang tersimpan; saat offline total tanpa cache, pesan menjelaskan caranya.
+- **Link QR anti-susah-scan (v3.00)**: isi QR kartu bisa berupa **link pendek** (±60 karakter vs ±300+ karakter payload penuh) → modul QR jauh lebih besar → **sangat mudah di-scan walau dicetak 25%**. Aktifkan lewat **🔗 Setting Link QR** (URL platform cek; disimpan di server, berlaku semua pengguna). Scan dengan kamera HP → halaman cek terbuka → **otomatis** menampilkan **✓ Kartu ini asli** + **tanda tangan manager di bawah pernyataan** + rincian kartu. Verifikasi kriptografis tetap penuh di browser pengunjung (payload diambil via RPC anon `card_by_ref`; ref = 12 hex SHA-256 id pengajuan). Kartu lama (QR payload penuh) tetap bisa diverifikasi; mode link butuh internet saat diperiksa; kosongkan setting untuk kembali ke payload penuh.
 - **Catatan kamera**: akses kamera diblokir browser bila halaman tidak dalam konteks aman — di Netlify (HTTPS) tombol 📷 berfungsi; di pratinjau ber-iframe/`file://` tidak. Di lingkungan tanpa kamera, pakai **🖼 Scan dari foto** (di HP tombol ini membuka aplikasi kamera langsung).
 - Mesin verifikasi **identik** dengan aplikasi utama (canonical string KS3/KS2, ECDSA P-256 / RSA-2048, token `MP`/`PS1` diekspansi saat tampil) → putusan konsisten: `✓ KARTU INI ASLI` / `✗ KARTU TIDAK ASLI` + alasan spesifik (payload rusak, kid tak dikenal, tanda tangan tidak cocok) + detail kartu + peringatan bila masa berlaku habis.
 - Koneksi server ikut tertanam saat `python3 build.py` (dari `supabase/config.json`), juga mendukung link `?sb_url=…&sb_key=…` dan config localStorage.
@@ -339,7 +340,24 @@ Catatan: **login tetap perlu sekali per browser** — token sesi adalah kredensi
 
 ## Catatan rilis
 
-> **Konvensi versi (permintaan pengguna):** setiap revisi, versi pada judul ikut dinaikkan **+0.10** — `<title>`, `<h1>` ("ID Card Management v2.80"), konstanta `APP_VERSION` di template, judul verifier, platform cek keaslian, dan README. Revisi berikutnya = v2.90, dst.
+> **Konvensi versi (permintaan pengguna):** setiap revisi, versi pada judul ikut dinaikkan **+0.10** — `<title>`, `<h1>` ("ID Card Management v3.00"), konstanta `APP_VERSION` di template, judul verifier, platform cek keaslian, dan README. Revisi berikutnya = v3.10, dst.
+
+**v3.00 (revisi atas masukan pengguna — QR cetak susah di-scan → isi barcode jadi link halaman verifikasi)**
+
+- Masalah: QR berisi payload penuh (±300 karakter) sangat rapat saat dicetak kecil (badge 25%) sehingga susah di-scan. Solusi sesuai permintaan pengguna: **isi barcode = link** yang merujuk ke halaman yang menyatakan **kartu ini asli**, dengan **tanda tangan di bawah pernyataan**.
+- **Aplikasi**: pengaturan bersama baru **🔗 Setting Link QR** (tombol di samping ⚙ Setting No ID; URL platform cek disimpan di `app_settings` key `cek_url`). Bila terisi, SEMUA QR kartu (draft manager, penempatan di kartu, unduhan QR, tombol salin isi QR) berisi `{url}?card={ref}` — **ref = 12 hex pertama SHA-256(id pengajuan)**, dihitung identik di browser (WebCrypto) dan Postgres (`sha256(id::text::bytea)`) → **tanpa kolom/tabel baru**. Tanpa WebCrypto (mis. dibuka `file://`) atau setting kosong → otomatis kembali ke payload penuh.
+- **Skema — WAJIB jalankan ulang `supabase/schema.sql`**: RPC anon baru **`card_by_ref(p_ref)`** → `payload` tertanda + `sig_png` (tanda tangan manager dari profiles) + `signed_by`, hanya pengajuan berstatus `disetujui`.
+- **Platform cek**: mengenali link QR (dibuka langsung lewat `?card=` → periksa otomatis; hasil scan kamera; atau ditempel manual) → ambil payload dari server → verifikasi kriptografis tetap penuh → putusan **✓ KARTU INI ASLI** dengan **gambar tanda tangan pejabat pengesah tepat di bawah pernyataan** (fallback: field `ss` bila tersemat di payload), lalu rincian kartu. Ref tak dikenal → "KARTU TIDAK DITEMUKAN"; offline → "PERLU INTERNET" (mode link mengambil data dari server).
+- Versi judul (aplikasi utama + platform cek) naik menjadi **v3.00**.
+- Uji otomatis: 206 → **212 kasus** (mock RPC card_by_ref; makeCardLink === ref hitungan SHA-256 Node/SQL; link → ASLI; gambar tanda tangan tampil di bawah pernyataan; ref tak dikenal → pesan jelas; RPC ada di schema + grant anon).
+
+**v2.90 (revisi atas masukan pengguna — cron keep-alive terverifikasi waktu nyata di Supabase)**
+
+- Laporan pengguna: cron-job.org sudah jalan (baris `cron` tertulis — note berubah jadi "cron-job.org"), tetapi `last_beat`-nya tanggal statis dari body cron sehingga Table Editor tidak bisa menunjukkan kapan cron terakhir berjalan. Solusi: RPC baru **`public.keep_alive(p_note)`** (security definer, grant `anon`) — meng-upsert baris `heartbeat` id='cron' dengan **`last_beat = now()` sungguhan** dan mengembalikan stempel waktunya. Cron cukup `POST /rest/v1/rpc/keep_alive` dengan body `{"p_note":"cron-job.org"}` (header `Prefer` tak diperlukan lagi).
+- **Aksi pengguna satu kali**: jalankan ulang `supabase/schema.sql` di SQL Editor, lalu ubah URL job cron-job.org ke `/rest/v1/rpc/keep_alive` + body di atas.
+- Template `supabase/keep-alive.yml` (GitHub Actions) diperbarui ke RPC yang sama; README bagian *Menjaga Supabase tetap aktif* direvisi (jadwal harian disarankan; cara cek diperjelas).
+- Versi judul (aplikasi utama + platform cek) naik menjadi **v2.90**.
+- Uji otomatis: 205 → **206 kasus** (RPC keep_alive ada di schema + grant anon).
 
 **v2.80 (revisi atas masukan pengguna — diagnosa galat kamera tepat sasaran)**
 

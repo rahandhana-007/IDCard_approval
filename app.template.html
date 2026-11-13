@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ID Card Management v2.80 — Purchasing - Raw Material Section</title>
+<title>ID Card Management v3.00 — Purchasing - Raw Material Section</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2064%2064'%3E%3Cdefs%3E%3ClinearGradient%20id='g'%20x1='0'%20y1='0'%20x2='1'%20y2='1'%3E%3Cstop%20offset='0'%20stop-color='%234f46e5'/%3E%3Cstop%20offset='1'%20stop-color='%236d28d9'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect%20x='4'%20y='12'%20width='56'%20height='40'%20rx='7'%20fill='url(%23g)'/%3E%3Crect%20x='4'%20y='20'%20width='56'%20height='8'%20fill='%231e1b4b'/%3E%3Crect%20x='10'%20y='35'%20width='13'%20height='10'%20rx='2.5'%20fill='%23fbbf24'/%3E%3Crect%20x='29'%20y='37'%20width='25'%20height='3.5'%20rx='1.75'%20fill='%23c7d2fe'/%3E%3Crect%20x='29'%20y='44'%20width='16'%20height='3.5'%20rx='1.75'%20fill='%23a5b4fc'/%3E%3C/svg%3E">
 <style>
 /*QRGEN_CSS*/
@@ -159,7 +159,7 @@ canvas.qrthumb{image-rendering:pixelated;border:1px solid var(--line);border-rad
       </svg>
     </div>
     <div class="grow">
-      <h1>ID Card Management v2.80</h1>
+      <h1>ID Card Management v3.00</h1>
       <p class="sub">Purchasing - Raw Material Section | ID Card Vendor Representative Approval</p>
     </div>
     <span class="chip gray hide" id="chipSession" title="Sesi aktif"></span>
@@ -304,6 +304,7 @@ canvas.qrthumb{image-rendering:pixelated;border:1px solid var(--line);border-rad
               <button class="btn" id="btnNewCid" type="button" title="Ambil nomor baru dari server" style="flex:0 0 auto">↻ Nomor baru</button>
               <button class="btn" id="btnResetCid" type="button" title="Reset form pengajuan ke pengaturan default — nomor kartu diminta ulang dari server" style="flex:0 0 auto">↺ Reset</button>
               <button class="btn" id="btnCidFmt" type="button" title="Ubah format Nomor / ID kartu" style="flex:0 0 auto">⚙ Setting No ID</button>
+              <button class="btn" id="btnLinkQr" type="button" title="Jadikan isi QR berupa link pendek ke halaman verifikasi (QR cetak kecil jadi mudah di-scan)" style="flex:0 0 auto">🔗 Setting Link QR</button>
             </div>
             <div id="cidFmtBox" class="hide" style="margin-top:10px;padding:12px;border:1px solid var(--line2);border-radius:12px;background:#f8fafc">
               <label class="f" for="cidFmtInput">Format Nomor / ID kartu</label>
@@ -319,6 +320,16 @@ canvas.qrthumb{image-rendering:pixelated;border:1px solid var(--line);border-rad
                 <button class="btn danger" id="btnResetSeq" type="button" style="flex:0 0 auto">↺ Reset nomor ke 0001</button>
                 <p class="hint" style="margin:0;flex:1 1 220px">Khusus <b>manager</b>. Counter urut bulan ini dikembalikan ke 0000 → nomor berikut yang diambil jadi <b>0001</b>. Hati-hati: bila bulan ini sudah ada nomor yang dipakai/dicetak, nomor baru bisa <b>kembar</b>. (Setiap ganti bulan, counter otomatis mulai lagi dari 0001.)</p>
               </div>
+            </div>
+            <div id="linkQrBox" class="hide" style="margin-top:10px;padding:12px;border:1px solid var(--line2);border-radius:12px;background:#f8fafc">
+              <label class="f" for="linkQrInput">URL platform cek keaslian — isi QR jadi link pendek</label>
+              <div class="flex" style="gap:8px;flex-wrap:wrap;align-items:stretch">
+                <input type="text" id="linkQrInput" placeholder="https://situs-anda.netlify.app/cek-keaslian.html" autocomplete="off" style="flex:1 1 auto;min-width:180px">
+                <button class="btn primary" id="btnLinkQrSave" type="button" style="flex:0 0 auto">Simpan</button>
+                <button class="btn" id="btnLinkQrClear" type="button" style="flex:0 0 auto">Kosongkan</button>
+                <button class="btn" id="btnLinkQrCancel" type="button" style="flex:0 0 auto">Batal</button>
+              </div>
+              <p class="hint" style="margin-top:8px">Bila terisi, QR kartu berisi <b>link pendek</b> (±60 karakter, versus ±300+ karakter payload penuh) → modul QR jauh lebih besar → <b>sangat mudah di-scan walau dicetak kecil</b>. Scan dengan kamera HP langsung membuka halaman putusan: <b>✓ Kartu ini asli</b> + tanda tangan manager di bawah pernyataan. URL disimpan di server → berlaku untuk semua pengguna. <b>Kosongkan</b> untuk kembali ke mode payload penuh (kartu lama selalu tetap valid).</p>
             </div>
           </div>
           <div class="row c2">
@@ -890,6 +901,7 @@ const S = {
   verifyImg: { file:null, bytes:null, name:"" },
   sigImg: null,      // {file,name,img,bytes,w,h}
   cidFmt: "",        // v2.20: template format Nomor/ID kartu (token {tahun}/{bulan}/{nomor})
+  cekUrl: "",        // v3.00: URL platform cek — bila terisi, isi QR = link pendek ?card=<ref>
   verifySig: null,   // bytes file tanda tangan untuk cek hash di verifikasi
   sig: null,                          // {payload(string), obj, sigB64, hashB64, ts}
   session: null,                      // {username, role:'user'|'manager'|'verifier', ts}
@@ -899,7 +911,7 @@ const S = {
   history: []
 };
 
-const APP_VERSION = "v2.80";   // ← WAJIB naik (+0.10) setiap revisi; ubah juga <title> & <h1>
+const APP_VERSION = "v3.00";   // ← WAJIB naik (+0.10) setiap revisi; ubah juga <title> & <h1>
 const LS = { hist:"kartusign.history.v1", pub:"kartusign.pub.v1", meta:"kartusign.meta.v1", acc:"kartusign.accounts.v1", sess:"kartusign.session.v1" };
 function lsGet(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }
 function lsSet(k,v){ try{ localStorage.setItem(k,v); }catch(e){} }
@@ -1340,6 +1352,31 @@ function updateCidFmtPreview(){
                     .replace(/\{nomor\}/g, "0001");
   pv.innerHTML = 'Contoh hasil: <b class="mono">' + esc(contoh) + "</b>";
 }
+/* ---------------- v3.00: link QR pendek (ref = 12 hex SHA-256(id request)) ----------------
+   Isi QR = {cekUrl}?card=<ref> → jauh lebih pendek dari payload penuh sehingga
+   QR cetak kecil (badge 25%) sangat mudah di-scan. RPC server card_by_ref(ref)
+   mengembalikan payload + tanda tangan manager utk halaman putusan. */
+async function sha256Hex12(str){
+  try{
+    if (!(window.crypto && crypto.subtle && crypto.subtle.digest)) return "";
+    const b = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(String(str)));
+    return Array.from(new Uint8Array(b)).map(v=>v.toString(16).padStart(2,"0")).join("").slice(0,12);
+  }catch(e){ return ""; }
+}
+async function loadCekUrl(){
+  let u = "";
+  try{ u = localStorage.getItem("kartusign.cekurl.v1") || ""; }catch(e){}
+  try{ if (SB.configured() && S.session){ const sv = await SB.getSetting("cek_url"); if (sv) u = sv; } }catch(e){}
+  S.cekUrl = String(u || "").trim();
+  return S.cekUrl;
+}
+async function makeCardLink(reqId){
+  if (!S.cekUrl) await loadCekUrl();
+  if (!S.cekUrl || !reqId) return "";
+  const ref = await sha256Hex12(reqId);
+  if (!ref) return "";   // tanpa WebCrypto (mis. file://) → diam-diam pakai payload penuh
+  return S.cekUrl + (S.cekUrl.indexOf("?") >= 0 ? "&" : "?") + "card=" + ref;
+}
 async function fetchNewCid(force){
   try{
     if (!SB.configured() || !S.session || S.session.role === "verifier") return "";
@@ -1524,7 +1561,7 @@ async function prepareApprovedCard(id){
   delete meta._layout; delete meta._sig; delete meta._sname;
   S.card = rec; S.signMeta = meta; S.currentReqId = null; S.userApprovedId = id;
   $("qrCaption").value = "Digitaly Signed - " + (sname || "Manager");   // nama penyetuju di bawah barcode
-  S.sig = { payload: r.payload, obj, sigB64: obj.s || "", hashB64: obj.h || "", ts: obj.ts,
+  S.sig = { payload: r.payload, link: await makeCardLink(id), obj, sigB64: obj.s || "", hashB64: obj.h || "", ts: obj.ts,
             alg: obj.alg, kid: obj.kid || r.kid, digestB64: "", publicPem: "" };
   S.sigImg = null;   // tanda tangan manager TIDAK dicetak pada kartu
   const box = $("approvedBox"); box.classList.remove("hide");
@@ -1537,7 +1574,7 @@ function userDownload(fmt){
   if (!S.sig || !S.userApprovedId){ toast("Muat kartu yang sudah disetujui terlebih dahulu.", true); return; }
   const base = String(S.sig.obj.cid || "kartu").replace(/[^\w.-]+/g, "_");
   if (fmt === "qr"){
-    const qr = makeQrCanvas(S.sig.payload, 900, $("qrEcl").value || "M");
+    const qr = makeQrCanvas(S.sig.link || S.sig.payload, 900, $("qrEcl").value || "M");
     qr.canvas.toBlob(b=>downloadBlob(b, `QR-${base}.png`), "image/png");
     toast("QR diunduh"); return;
   }
@@ -1793,7 +1830,7 @@ async function signCard(metaOverride){
   const payload = JSON.stringify(payloadObj);
   if (payload.length > 2000) throw new Error("Payload terlalu besar untuk QR ("+payload.length+" karakter).");
 
-  S.sig = { payload, obj: payloadObj, sigB64, hashB64: imgHashB64, ts, alg, kid: rec.kid, digestB64: b64u(digest), publicPem: rec.publicPem };
+  S.sig = { payload, link: await makeCardLink(S.currentReqId || ""), obj: payloadObj, sigB64, hashB64: imgHashB64, ts, alg, kid: rec.kid, digestB64: b64u(digest), publicPem: rec.publicPem };
   return S.sig;
 }
 async function ensureKey(alg){
@@ -1979,7 +2016,7 @@ function drawCard(target, opts){
   if (needBadge){
     const b = computeBadge();
     const qSide = Math.max(8, b.w - b.pad*2);   // sisi QR = lebar badge dikurangi padding kiri+kanan
-    const qr = makeQrCanvas(S.sig.payload, Math.round(qSide*scale), $("qrEcl").value || "M");
+    const qr = makeQrCanvas(S.sig.link || S.sig.payload, Math.round(qSide*scale), $("qrEcl").value || "M");
     g.save();
     g.translate(b.x*scale, b.y*scale);
     if ($("qrRotate").checked){
@@ -2044,7 +2081,7 @@ function renderApproved(){
   if (!S.sig || !S.userApprovedId) return;
   const ph = $("printHint");
   if (ph){
-    const adv = qrPrintAdvice(S.sig.payload);
+    const adv = qrPrintAdvice(S.sig.link || S.sig.payload);
     ph.innerHTML = adv ? `<b>Panduan cetak:</b> QR ini versi ${adv.ver} (${adv.n} modul) · agar terbaca scanner cetak minimal ≈ <b>${adv.mm}×${adv.mm} mm</b> (0,4 mm/modul). Bila kartu dicetak lebih kecil (mis. skala 25%): perbesar ukuran QR, pilih koreksi galat <b>L</b>, atau minta manager menghapus centang <i>sematkan ss</i> agar QR lebih ringan.` : "";
   }
   const box = $("approvedBox");
@@ -2539,6 +2576,32 @@ function init(){
     if (savedServer) toast("Format Nomor/ID disimpan di server — berlaku untuk semua pengguna." + (id ? " Contoh: " + id : ""));
     else toast("Format disimpan di browser ini saja — server menolak (jalankan ulang supabase/schema.sql untuk tabel app_settings).", true);
   });
+  $("btnLinkQr").addEventListener("click", async ()=>{
+    const box = $("linkQrBox"); if (!box) return;
+    if (!S.cekUrl) await loadCekUrl();
+    $("linkQrInput").value = S.cekUrl || ((location.protocol === "https:" || location.hostname === "localhost" || location.hostname === "127.0.0.1") ? location.origin.replace(/\/+$/, "") + "/cek-keaslian.html" : "");
+    box.classList.remove("hide");
+  });
+  $("btnLinkQrCancel").addEventListener("click", ()=>{ const box = $("linkQrBox"); if (box) box.classList.add("hide"); });
+  async function saveCekUrl(val){
+    const u = String(val || "").trim();
+    if (u){
+      let ok = false;
+      try{ const pu = new URL(u); ok = (pu.protocol === "https:" || pu.protocol === "http:"); }catch(e){}
+      if (!ok){ toast("URL tidak valid — contoh: https://situs-anda.netlify.app/cek-keaslian.html", true); return; }
+    }
+    const btn = $("btnLinkQrSave"); btn.disabled = true;
+    let savedServer = false;
+    try{ if (SB.configured() && S.session){ await SB.saveSetting("cek_url", u); savedServer = true; } }catch(e){}
+    try{ if (u) localStorage.setItem("kartusign.cekurl.v1", u); else localStorage.removeItem("kartusign.cekurl.v1"); }catch(e){}
+    S.cekUrl = u;
+    const box = $("linkQrBox"); if (box) box.classList.add("hide");
+    btn.disabled = false;
+    if (u) toast(savedServer ? "Link QR disimpan di server — QR kartu berikutnya berupa link pendek ke halaman cek." : "Link QR disimpan di browser ini saja — server menolak.", !savedServer);
+    else toast("Mode link dimatikan — QR kembali berisi payload penuh.");
+  }
+  $("btnLinkQrSave").addEventListener("click", ()=>saveCekUrl($("linkQrInput").value));
+  $("btnLinkQrClear").addEventListener("click", ()=>saveCekUrl(""));
   $("btnResetSeq").addEventListener("click", async ()=>{
     if (!S.session || S.session.role !== "manager"){ toast("Hanya manager yang dapat mereset nomor kartu.", true); return; }
     if (!confirm("Reset counter nomor kartu ke 0001?\nBila bulan ini sudah ada nomor yang dipakai/dicetak, nomor baru bisa kembar.")) return;
@@ -2692,8 +2755,8 @@ function init(){
     const old = btn.innerHTML; btn.innerHTML = "Memproses…";
     try{
       await signCard();
-      $("payloadBox").value = S.sig.payload;
-      const qr = makeQrCanvas(S.sig.payload, 420, "M");
+      $("payloadBox").value = S.sig.link || S.sig.payload;
+      const qr = makeQrCanvas(S.sig.link || S.sig.payload, 420, "M");
       const oldCv = $("qrDraft");
       qr.canvas.id = "qrDraft"; qr.canvas.classList.remove("hide");
       qr.canvas.style.width = "240px"; qr.canvas.style.height = "240px";
@@ -2732,7 +2795,7 @@ function init(){
   });
 
   $("btnCopyPayload").addEventListener("click", async ()=>{
-    try{ await copyText(S.sig.payload); toast("Isi QR disalin"); }catch(e){ toast("Gagal menyalin", true); }
+    try{ await copyText(S.sig.link || S.sig.payload); toast("Isi QR disalin"); }catch(e){ toast("Gagal menyalin", true); }
   });
   $("btnSendVerify").addEventListener("click", ()=>{
     $("vPayload").value = S.sig.payload;
@@ -2912,7 +2975,7 @@ window.KartuSign = {
   version: APP_VERSION.replace(/^v/, ""),
   state: S,
   _debug: { render, renderSigInfo, encryptBlob, decryptBlob, importPrivateFromText, computeKid, makeQrCanvas, signCard, loadImageFile, computeBadge, applyOrientation, buildVerifierHtml, trustSources, verifySignatureOf, getSelfHtml: ()=>SELF_HTML, canonicalString, buildCompactSig, expandCompactSig, renderApproved, qrPrintAdvice, expandFixed, tokFixed,
-  SB, sbAddAccount, sbEnsureFirstManager, sbProfileOrThrow, saveSigToServer, restoreSigFromProfile, loadCidFormat, applyCidFormat, validateCidFormat, doSignup, renderAccounts, rowToRec, bytesToB64, b64ToBytes, loadHistory, pushHistory, startPolling, stopPolling, sendHeartbeat, fetchNewCid,
+  SB, sbAddAccount, sbEnsureFirstManager, sbProfileOrThrow, saveSigToServer, restoreSigFromProfile, loadCidFormat, applyCidFormat, validateCidFormat, doSignup, renderAccounts, rowToRec, bytesToB64, b64ToBytes, loadHistory, pushHistory, startPolling, stopPolling, sendHeartbeat, fetchNewCid, sha256Hex12, loadCekUrl, makeCardLink,
     reqAll, reqGet, loadRequest, submitRequest, doLogin, logout, applyRole, bytesToImageRec, renderQueue, renderMyRequests, unlockKey, loadKeys, persistKeys, ensureKey, prepareApprovedCard, userDownload, imageFromURL },
   algos: ALG,
   utils: { b64u, b64uToBytes, hexShort, canonicalString, derToPem, pemToDer },
@@ -2941,7 +3004,7 @@ window.KartuSign = {
   download(fmt, scale){
     const f = fmt || "png";
     const base = (S.sig && S.sig.obj.cid ? S.sig.obj.cid : "kartu").replace(/[^\w.-]+/g,"_");
-    if (f === "qr"){ const qr = makeQrCanvas(S.sig.payload, 900, "M"); return qr.canvas.toBlob(b=>downloadBlob(b, `QR-${base}.png`), "image/png"); }
+    if (f === "qr"){ const qr = makeQrCanvas(S.sig.link || S.sig.payload, 900, "M"); return qr.canvas.toBlob(b=>downloadBlob(b, `QR-${base}.png`), "image/png"); }
     const c = drawCard(null, { scale: scale || 1 });
     return new Promise(res=>c.toBlob(b=>{ downloadBlob(b, `${base}-signed.${f==="jpg"?"jpg":"png"}`); res(b); }, f==="jpg"?"image/jpeg":"image/png", 0.95));
   },

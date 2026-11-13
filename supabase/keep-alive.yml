@@ -9,7 +9,8 @@
 #       SUPABASE_ANON_KEY   = anon key publik            (sama seperti di aplikasi)
 #  4. Jalankan sekali manual: tab Actions → "Supabase keep-alive" → Run workflow.
 #
-# Menulis 1 baris stempel waktu ke tabel `heartbeat` setiap 3 hari
+# Memanggil RPC keep_alive() setiap 3 hari — baris `heartbeat` id='cron'
+# ter-update dengan last_beat = now() sungguhan (butuh schema.sql v2.90+).
 # (Supabase free tier mem-pause proyek bila tidak ada aktivitas ±7 hari).
 # Catatan: GitHub menonaktifkan workflow terjadwal bila repositori tidak
 # aktif 60 hari — buka repo sesekali, atau pakai alternatif cron-job.org
@@ -26,14 +27,14 @@ jobs:
   heartbeat:
     runs-on: ubuntu-latest
     steps:
-      - name: Upsert baris heartbeat
+      - name: Panggil RPC keep_alive
         run: |
-          curl -sS --fail -X POST "$SUPABASE_URL/rest/v1/heartbeat" \
+          curl -sS --fail -X POST "$SUPABASE_URL/rest/v1/rpc/keep_alive" \
             -H "apikey: $SUPABASE_ANON_KEY" \
             -H "Content-Type: application/json" \
-            -H "Prefer: resolution=merge-duplicates" \
-            -d "{\"id\":\"cron\",\"last_beat\":\"$(date -u +%Y-%m-%dT%H:%M:%SZ)\",\"note\":\"keep-alive GitHub Actions\"}"
-          echo "Heartbeat terkirim."
+            -d '{"p_note":"keep-alive GitHub Actions"}'
+          echo ""
+          echo "keep_alive terkirim."
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}

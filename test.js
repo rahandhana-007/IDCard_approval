@@ -166,6 +166,15 @@ async function sbFetch(urlStr, opts) {
   if (url.includes('/rest/v1/rpc/public_signing_keys')) {   // v2.50: kunci publik utk platform cek (anon boleh)
     return resp(200, backend.signing_keys.map(k => ({ alg: k.alg, kid: k.kid, pubkey_pem: k.pubkey_pem })));
   }
+  if (url.includes('/rest/v1/rpc/card_by_ref')) {           // v3.00: link QR → payload + tanda tangan (anon boleh)
+    const cryptoN = require('crypto');
+    const ref = String((body && body.p_ref) || '').toLowerCase();
+    const rq = backend.requests.find(q => q.status === 'disetujui' && q.payload &&
+      cryptoN.createHash('sha256').update(String(q.id), 'utf8').digest('hex').slice(0, 12) === ref);
+    if (!rq) return resp(200, []);
+    const pr = backend.profiles.find(p => p.username === rq.signed_by);
+    return resp(200, [{ payload: rq.payload, sig_png: (pr && pr.sig_png) || null, signed_by: rq.signed_by || '' }]);
+  }
   if (url.includes('/rest/v1/rpc/update_my_full_name')) {   // v2.3: security-definer RPC
     if (!a) return resp(401, { code: '42501', message: 'RLS' });
     const nm = String((body && body.nama) || '').trim();
@@ -911,9 +920,37 @@ const winA = domA.window, docA = winA.document;
   check('PWA: manifest + theme-color + apple-touch-icon di halaman cek', /rel="manifest"/.test(cekRaw) && /name="theme-color"/.test(cekRaw) && /apple-touch-icon/.test(cekRaw));
   check('PWA: service worker terdaftar hanya di konteks aman', /navigator\.serviceWorker\.register\("sw\.js"\)/.test(cekRaw) && /location\.protocol === "https:"/.test(cekRaw));
   const swSrc = fs.readFileSync(path.join(__dirname, 'deploy', 'sw.js'), 'utf8');
-  check('PWA: SW ter-deploy — cache kunci publik utk verifikasi offline + versi tercetak', /public_signing_keys/.test(swSrc) && /cek-v2\.\d+/.test(swSrc) && !/__CACHE_VER__/.test(swSrc));
+  check('PWA: SW ter-deploy — cache kunci publik utk verifikasi offline + versi tercetak', /public_signing_keys/.test(swSrc) && /cek-v\d+\.\d+/.test(swSrc) && !/__CACHE_VER__/.test(swSrc));
   const man = JSON.parse(fs.readFileSync(path.join(__dirname, 'deploy', 'manifest.webmanifest'), 'utf8'));
   check('PWA: manifest valid (standalone, start_url, ikon tersedia)', man.display === 'standalone' && /cek-keaslian\.html/.test(man.start_url) && Array.isArray(man.icons) && man.icons.length >= 2 && fs.existsSync(path.join(__dirname, 'deploy', 'icon-512.png')) && fs.existsSync(path.join(__dirname, 'deploy', 'icon-192.png')));
+
+  /* ============ 19l. KEEP-ALIVE RPC (v2.90) ============ */
+  const schemaSql = fs.readFileSync(path.join(__dirname, 'supabase', 'schema.sql'), 'utf8');
+  check('Keep-alive: RPC keep_alive() ada di schema + grant anon (utk cron eksternal)', /function public\.keep_alive/.test(schemaSql) && /grant execute on function public\.keep_alive\(text\) to anon/.test(schemaSql));
+
+  /* ============ 19m. LINK QR → HALAMAN VERIFIKASI (v3.00) ============ */
+  const cryptoN = require('crypto');
+  const reqRowM = backend.requests.find(q => q.status === 'disetujui' && q.payload === row1.payload);
+  check('Link QR: request disetujui (row1) tersedia di mock lengkap dengan id', !!(reqRowM && reqRowM.id));
+  const refM = cryptoN.createHash('sha256').update(String(reqRowM.id), 'utf8').digest('hex').slice(0, 12);
+  try {
+    const wc = cryptoN.webcrypto;
+    if (!winA.crypto) Object.defineProperty(winA, 'crypto', { value: wc, configurable: true });
+    else Object.defineProperty(winA.crypto, 'subtle', { value: wc.subtle, configurable: true });
+  } catch(e){}
+  winA.localStorage.setItem('kartusign.cekurl.v1', 'https://contoh.netlify.app/cek-keaslian.html');
+  const linkM = await winA.KartuSign._debug.makeCardLink(reqRowM.id);
+  check('Aplikasi: makeCardLink → URL + ?card= + 12 hex SHA-256(id) — identik dgn hitungan sisi SQL', linkM === 'https://contoh.netlify.app/cek-keaslian.html?card=' + refM, linkM);
+  const sigProf = backend.profiles.find(p => p.username === reqRowM.signed_by) || backend.profiles.find(p => p.role === 'manager');
+  if (sigProf) sigProf.sig_png = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+  docH.getElementById('cekPayload').value = linkM;
+  await winH.CekKeaslian.doCheck();
+  check('Platform cek: dibuka via link QR → putusan ✓ KARTU INI ASLI', /KARTU INI ASLI/.test(resH.textContent), resH.textContent.replace(/\s+/g, ' ').slice(0, 90));
+  check('Platform cek: tanda tangan manager tampil di bawah pernyataan asli', !!resH.querySelector('img[alt="Tanda tangan pengesah"]') && /Tanda tangan pejabat pengesah/.test(resH.textContent));
+  docH.getElementById('cekPayload').value = 'https://contoh.netlify.app/cek-keaslian.html?card=000000000000';
+  await winH.CekKeaslian.doCheck();
+  check('Platform cek: ref tak dikenal → KARTU TIDAK DITEMUKAN (pesan jelas, bukan crash)', /KARTU TIDAK DITEMUKAN/.test(resH.textContent), resH.textContent.replace(/\s+/g, ' ').slice(0, 90));
+  check('Link QR: RPC card_by_ref ada di schema + grant anon', /function public\.card_by_ref/.test(schemaSql) && /grant execute on function public\.card_by_ref\(text\) to anon/.test(schemaSql));
 
   /* ============ 20. LOGOUT membersihkan state lokal ============ */
   await D.logout(); await sleep(300);

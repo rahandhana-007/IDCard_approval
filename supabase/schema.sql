@@ -289,3 +289,39 @@ language sql stable security definer set search_path = public as $$
 $$;
 revoke all on function public.public_signing_keys() from public;
 grant execute on function public.public_signing_keys() to anon, authenticated;
+
+-- ---------- v2.90: keep_alive() — stempel waktu NYATA utk cron eksternal ----------
+-- Cron (cron-job.org / GitHub Actions) memanggil:
+--   POST {proyek}/rest/v1/rpc/keep_alive    body: {"p_note":"cron-job.org"}
+-- Meng-upsert baris heartbeat id='cron' dengan last_beat = now() sungguhan dan
+-- mengembalikan stempel waktunya, sehingga Table Editor Supabase bisa menunjukkan
+-- kapan cron terakhir berjalan (body cron tak perlu lagi memuat tanggal).
+create or replace function public.keep_alive(p_note text default 'cron eksternal')
+returns timestamptz language sql security definer set search_path = public as $$
+  insert into public.heartbeat (id, last_beat, note)
+  values ('cron', now(), p_note)
+  on conflict (id) do update set last_beat = now(), note = excluded.note
+  returning last_beat;
+$$;
+revoke all on function public.keep_alive(text) from public;
+grant execute on function public.keep_alive(text) to anon, authenticated;
+
+-- ---------- v3.00: card_by_ref() — verifikasi via LINK QR pendek ----------
+-- QR kartu (mode link) berisi: {url-platform-cek}?card=<ref> dengan
+-- ref = 12 hex pertama SHA-256 dari id request — dihitung IDENTIK di browser
+-- (WebCrypto) dan di sini (sha256(id::text::bytea)) sehingga tanpa kolom baru.
+-- Mengembalikan payload tertanda + tanda tangan PNG manager pengesah untuk
+-- halaman putusan "Kartu ini asli". Hanya kartu berstatus 'disetujui'.
+-- Boleh anonim: data ini memang dipublikasikan lewat QR kartu.
+create or replace function public.card_by_ref(p_ref text)
+returns table (payload text, sig_png text, signed_by text)
+language sql stable security definer set search_path = public as $$
+  select r.payload, pr.sig_png, r.signed_by
+  from public.requests r
+  left join public.profiles pr on pr.username = r.signed_by
+  where r.status = 'disetujui' and r.payload <> ''
+    and left(encode(sha256(r.id::text::bytea), 'hex'), 12) = lower(p_ref)
+  limit 1;
+$$;
+revoke all on function public.card_by_ref(text) from public;
+grant execute on function public.card_by_ref(text) to anon, authenticated;

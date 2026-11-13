@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Cek Keaslian Kartu v2.80 — ID Card Management</title>
+<title>Cek Keaslian Kartu v3.00 — ID Card Management</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2064%2064'%3E%3Cdefs%3E%3ClinearGradient%20id='g'%20x1='0'%20y1='0'%20x2='1'%20y2='1'%3E%3Cstop%20offset='0'%20stop-color='%234f46e5'/%3E%3Cstop%20offset='1'%20stop-color='%236d28d9'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect%20x='4'%20y='12'%20width='56'%20height='40'%20rx='7'%20fill='url(%23g)'/%3E%3Crect%20x='4'%20y='20'%20width='56'%20height='8'%20fill='%231e1b4b'/%3E%3Crect%20x='10'%20y='35'%20width='13'%20height='10'%20rx='2.5'%20fill='%23fbbf24'/%3E%3Crect%20x='29'%20y='37'%20width='25'%20height='3.5'%20rx='1.75'%20fill='%23c7d2fe'/%3E%3Crect%20x='29'%20y='44'%20width='16'%20height='3.5'%20rx='1.75'%20fill='%23a5b4fc'/%3E%3C/svg%3E">
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#4f46e5">
@@ -66,7 +66,7 @@ ol.steps{margin:8px 0 0;padding-left:20px;font-size:13px;color:#334155;line-heig
     <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2.5"/><path d="M2 10h20"/><rect x="5" y="13" width="4" height="3" rx="1" fill="#fbbf24" stroke="none"/><path d="M12 14.5h7M12 17h4"/></svg>
   </div>
   <div>
-    <h1>Cek Keaslian Kartu v2.80</h1>
+    <h1>Cek Keaslian Kartu v3.00</h1>
     <p class="sub">Purchasing - Raw Material Section | ID Card Vendor Representative Approval</p>
   </div>
 </header>
@@ -75,7 +75,7 @@ ol.steps{margin:8px 0 0;padding-left:20px;font-size:13px;color:#334155;line-heig
   <section class="card">
     <h2>Periksa keaslian kartu</h2>
     <div class="body">
-      <p class="hint" style="margin-top:0">Tempel <b>isi QR code</b> kartu (payload) ke kotak di bawah, lalu tekan <b>Periksa Keaslian</b>. <b>Tanpa login</b> — tanda tangan digital diverifikasi di browser Anda memakai <b>kunci publik resmi</b> yang diambil langsung dari server.</p>
+      <p class="hint" style="margin-top:0">Tempel <b>isi QR code</b> kartu (payload atau <b>link QR</b>) ke kotak di bawah, lalu tekan <b>Periksa Keaslian</b> — dibuka dari link QR, pemeriksaan berjalan <b>otomatis</b>. <b>Tanpa login</b> — tanda tangan digital diverifikasi di browser Anda memakai <b>kunci publik resmi</b> yang diambil langsung dari server.</p>
       <textarea id="cekPayload" spellcheck="false" autocomplete="off" placeholder='Tempel payload QR di sini — contoh: {"v":3,"alg":"ES256","kid":"2eb35a","ts":1790000000,...}'></textarea>
       <div class="btnrow">
         <button class="btn" id="btnScan" type="button">📷 Scan QR (kamera)</button>
@@ -110,6 +110,7 @@ ol.steps{margin:8px 0 0;padding-left:20px;font-size:13px;color:#334155;line-heig
         <li><b>Paling mudah</b>: tekan <b>📷 Scan QR (kamera)</b> lalu arahkan ke QR code kartu — putusan tampil <b>otomatis</b> begitu QR terbaca. (Butuh HTTPS + izin kamera.)</li>
         <li>Alternatif: <b>🖼 Scan dari foto</b> (unggah foto QR/kartu), atau tempel manual teks isi QR ke kotak di atas lalu tekan <b>Periksa Keaslian</b>.</li>
         <li>Putusan tampil seketika: <b style="color:var(--ok)">✓ ASLI</b> (tanda tangan cocok dengan kunci publik penerbit di server) atau <b style="color:var(--err)">✗ TIDAK ASLI</b> (data berubah / tidak diterbitkan instansi ini).</li>
+        <li><b>Link QR (v3.00)</b>: bila aplikasi memakai mode link, cukup <b>pindai QR kartu dengan kamera HP</b> — halaman ini terbuka dan langsung menampilkan putusan <b>✓ Kartu ini asli</b> beserta <b>tanda tangan pejabat pengesah</b> di bawah pernyataan.</li>
       </ol>
       <p class="hint">Privasi: halaman ini tidak meminta data pribadi, tidak memakai cookie, dan tidak menyimpan apa pun. Pemeriksaan kriptografi berjalan 100% di browser Anda (Web Crypto API). Kamera hanya dinyalakan saat Anda menekan tombol <i>Scan QR</i>, dan langsung dimatikan begitu QR terbaca atau panel ditutup.</p>
     </div>
@@ -203,6 +204,19 @@ async function importPublicPem(pem, alg){
 }
 
 /* ---------------- ambil kunci publik penerbit dari server (anon) ---------------- */
+async function fetchCardByRef(cfg, ref){
+  const r = await fetch(cfg.url.replace(/\/+$/, "") + "/rest/v1/rpc/card_by_ref", {
+    method: "POST",
+    headers: { "apikey": cfg.key, "Content-Type": "application/json" },
+    body: JSON.stringify({ p_ref: String(ref).toLowerCase() })
+  });
+  if (!r.ok){
+    if (r.status === 404) throw new Error("Fungsi server card_by_ref belum ada — jalankan ulang supabase/schema.sql (v3.00+).");
+    throw new Error("Server menolak permintaan link kartu (HTTP " + r.status + ").");
+  }
+  const j = await r.json();
+  return Array.isArray(j) ? (j[0] || null) : (j && j.payload ? j : null);
+}
 async function fetchPublicKeys(cfg){
   const r = await fetch(cfg.url.replace(/\/+$/, "") + "/rest/v1/rpc/public_signing_keys", {
     method: "POST",
@@ -238,8 +252,24 @@ function showErr(title, msg){
 async function doCheck(){
   const btn = $("btnCheck"); btn.disabled = true;
   try{
-    const txt = $("cekPayload").value.trim();
-    if (!txt){ showErr("BELUM ADA DATA", "Tempelkan terlebih dahulu isi QR code kartu ke kotak di atas."); return; }
+    let txt = $("cekPayload").value.trim();
+    if (!txt){ showErr("BELUM ADA DATA", "Tempelkan terlebih dahulu isi QR code kartu (payload atau link QR) ke kotak di atas."); return; }
+    let resolved = null;   // v3.00: baris server bila diperiksa lewat link QR
+    const mCard = txt.match(/(?:^|[?&#])card=([A-Za-z0-9_-]{6,64})/i);
+    if (mCard && txt.charAt(0) !== "{"){
+      const cfgL = getSbConfig();
+      if (!cfgL){ showErr("HALAMAN BELUM DIKONFIGURASI", "Link QR butuh koneksi server untuk mengambil data kartu. Buka halaman ini dari build/link resmi (parameter <span class='mono'>?sb_url=…&sb_key=…</span>)."); return; }
+      try{ resolved = await fetchCardByRef(cfgL, mCard[1]); }
+      catch(eL){
+        const netErr = (eL && eL.name === "TypeError") || /fetch|network|offline/i.test(String((eL && eL.message) || eL));
+        showErr(netErr ? "PERLU INTERNET" : "GAGAL MEMBUKA LINK",
+          netErr ? "Perangkat sedang offline — mode link QR mengambil data kartu dari server sehingga butuh internet. Sambungkan ke internet, atau tempel payload QR lengkap bila tersedia."
+                 : esc((eL && eL.message) || eL));
+        return;
+      }
+      if (!resolved || !resolved.payload){ showErr("KARTU TIDAK DITEMUKAN", "Link ini tidak merujuk ke kartu yang <b>disetujui</b> di server (ref <span class=\"mono\">" + esc(mCard[1]) + "</span>). Pastikan kartu sudah disetujui manager dan <b>supabase/schema.sql v3.00</b> sudah dijalankan ulang (RPC card_by_ref)."); return; }
+      txt = String(resolved.payload);
+    }
     let obj;
     try { obj = JSON.parse(txt); }
     catch(e){ showErr("KARTU TIDAK ASLI", "Payload tidak valid — isi QR bukan JSON yang utuh. Salin ulang seluruh teks QR tanpa terpotong."); return; }
@@ -276,7 +306,14 @@ async function doCheck(){
       return;
     }
     const expired = obj.exp ? (new Date(obj.exp + "T23:59:59").getTime() < Date.now()) : false;
+    const sigSrc = (resolved && resolved.sig_png) ? String(resolved.sig_png)
+                 : (obj.ss ? (String(obj.ss).indexOf("data:") === 0 ? String(obj.ss) : "data:image/png;base64," + obj.ss) : "");
+    const sigWho = (resolved && resolved.signed_by) ? String(resolved.signed_by) : (expandFixed(obj.apr) || "");
     show("ok", `<h3>✓ KARTU INI ASLI <span class="chip green">tanda tangan digital valid</span>${expired ? ' <span class="chip red">masa berlaku habis</span>' : ""}</h3>
+      ${sigSrc ? `<div style="margin:10px 0;padding:12px;border:1px solid var(--line2);border-radius:12px;background:#fff;text-align:center">
+        <img src="${esc(sigSrc)}" alt="Tanda tangan pengesah" style="max-height:96px;max-width:min(80%,320px)">
+        <p class="hint" style="margin:6px 0 0">Tanda tangan pejabat pengesah${sigWho ? " — <b>" + esc(sigWho) + "</b>" : ""}</p>
+      </div>` : ""}
       <dl class="kv">
         <dt>ID kartu</dt><dd class="mono">${esc(obj.cid || "—")}</dd>
         <dt>Pemegang</dt><dd>${esc(obj.hld || "—")}</dd>
@@ -412,7 +449,7 @@ function scanFromFile(file){
 }
 
 window.CekKeaslian = {
-  version: "v2.80",
+  version: "v3.00",
   decodeQR: (data, w, h) => decodeImageData(data, w, h, true),
   startScanner, stopScanner, doCheck
 };
@@ -442,6 +479,9 @@ window.CekKeaslian = {
   $("btnScanFile").addEventListener("click", ()=>{ $("fileScan").click(); });
   $("fileScan").addEventListener("change", ()=>{ scanFromFile($("fileScan").files[0]); $("fileScan").value = ""; });
   window.addEventListener("pagehide", stopScanner);
+  // v3.00: dibuka lewat link QR (?card=…) → periksa otomatis
+  const qCard = new URLSearchParams(location.search).get("card");
+  if (qCard){ $("cekPayload").value = String(location.href).slice(0, 2000); doCheck(); }
   // PWA: service worker hanya di konteks aman (https/localhost) + tombol instal
   if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost" || location.hostname === "127.0.0.1")){
     window.addEventListener("load", ()=>{ navigator.serviceWorker.register("sw.js").catch(()=>{}); });
