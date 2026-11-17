@@ -924,6 +924,11 @@ const winA = domA.window, docA = winA.document;
   check('Platform cek: tanda tangan manager tampil — base64 polos dinormalkan ke data URL', !!sigImgM && String(sigImgM.getAttribute('src')).startsWith('data:image/png;base64,'));
   check('Platform cek: identitas pemilik tampil seperti semula (ID, pemegang, penetap, berlaku hingga)', !!resH.querySelector('dl.kv') && /KTR-REQ-001/.test(resH.textContent) && /Siti Aminah/.test(resH.textContent) && /Manager Purchasing/.test(resH.textContent) && /Berlaku hingga/.test(resH.textContent), resH.textContent.replace(/\s+/g, ' ').slice(0, 90));
   check('Platform cek: di bawah tanda tangan tampil nama penandatangan + jabatan "Purchasing Manager"', /Naomi Simamora/.test(resH.textContent) && /Purchasing Manager/.test(resH.textContent) && !!resH.querySelector('.sigbox .signame') && !!resH.querySelector('.sigbox .sigtitle'));
+  {
+    const htmlM = resH.innerHTML;
+    const urutOk = htmlM.indexOf('cohead') < htmlM.indexOf('<dl') && htmlM.indexOf('<dl') < htmlM.indexOf('sigbox');
+    check('Tata letak v3.50: kop PT. Bridgestone → identitas → blok TANDA TANGAN (label+gambar+nama+jabatan)', /PT\. BRIDGESTONE SUMATRA RUBBER ESTATE/.test(resH.textContent) && /Purchasing Section - Raw Material/.test(resH.textContent) && /TANDA TANGAN/.test(resH.textContent) && urutOk && !!resH.querySelector('.sigbox .siglabel'));
+  }
   await winH.CekKeaslian.checkCard('000000000000');
   check('Platform cek: ref tak dikenal → KARTU TIDAK DITEMUKAN (pesan jelas, bukan crash)', /KARTU TIDAK DITEMUKAN/.test(resH.textContent), resH.textContent.replace(/\s+/g, ' ').slice(0, 90));
   check('Link QR: init otomatis dari ?card= + RPC card_by_ref di schema + grant anon', cekRaw.includes('new URLSearchParams(location.search).get("card")') && /function public\.card_by_ref/.test(schemaSql) && /grant execute on function public\.card_by_ref\(text\) to anon/.test(schemaSql));
