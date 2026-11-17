@@ -173,7 +173,9 @@ async function sbFetch(urlStr, opts) {
       cryptoN.createHash('sha256').update(String(q.id), 'utf8').digest('hex').slice(0, 12) === ref);
     if (!rq) return resp(200, []);
     const pr = backend.profiles.find(p => p.username === rq.signed_by);
-    return resp(200, [{ payload: rq.payload, sig_png: (pr && pr.sig_png) || null, signed_by: rq.signed_by || '' }]);
+    let sigPng = (pr && pr.sig_png) || null, sigNameM = (pr && pr.full_name) || '';
+    if (!sigPng) { const pm = backend.profiles.find(p => p.role === 'manager' && p.sig_png); if (pm) { sigPng = pm.sig_png; sigNameM = sigNameM || pm.full_name || ''; } }   // v3.30/v3.40: fallback spt RPC coalesce
+    return resp(200, [{ payload: rq.payload, sig_png: sigPng, signed_by: rq.signed_by || '', signed_name: sigNameM || (rq.signed_by || '') }]);
   }
   if (url.includes('/rest/v1/rpc/cek_pin_active')) {        // v3.20: PIN halaman cek aktif? (anon boleh)
     const st = backend.app_settings.find(s => s.key === 'cek_pin_hash');
@@ -914,10 +916,14 @@ const winA = domA.window, docA = winA.document;
   const linkM = await winA.KartuSign._debug.makeCardLink(reqRowM.id);
   check('Aplikasi: makeCardLink → URL + ?card= + 12 hex SHA-256(id) — identik dgn hitungan sisi SQL', linkM === 'https://contoh.netlify.app/cek-keaslian.html?card=' + refM, linkM);
   const sigProf = backend.profiles.find(p => p.username === reqRowM.signed_by) || backend.profiles.find(p => p.role === 'manager');
-  if (sigProf) sigProf.sig_png = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
+  if (sigProf) sigProf.sig_png = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';   // v3.30: base64 POLOS seperti disimpan aplikasi (bytesToB64)
+  if (sigProf) sigProf.full_name = 'Naomi Simamora';   // v3.40: nama penandatangan utk caption
   await winH.CekKeaslian.checkCard(refM);
   check('Platform cek: lewat link QR → putusan ✓ KARTU INI ASLI', /KARTU INI ASLI/.test(resH.textContent), resH.textContent.replace(/\s+/g, ' ').slice(0, 90));
-  check('Platform cek: tanda tangan manager tampil di bawah pernyataan — tanpa rincian/caption lain', !!resH.querySelector('.sigbox img[alt="Tanda tangan pengesah"]') && !resH.querySelector('dl') && !/Tanda tangan pejabat pengesah/.test(resH.textContent));
+  const sigImgM = resH.querySelector('.sigbox img[alt="Tanda tangan pengesah"]');
+  check('Platform cek: tanda tangan manager tampil — base64 polos dinormalkan ke data URL', !!sigImgM && String(sigImgM.getAttribute('src')).startsWith('data:image/png;base64,'));
+  check('Platform cek: identitas pemilik tampil seperti semula (ID, pemegang, penetap, berlaku hingga)', !!resH.querySelector('dl.kv') && /KTR-REQ-001/.test(resH.textContent) && /Siti Aminah/.test(resH.textContent) && /Manager Purchasing/.test(resH.textContent) && /Berlaku hingga/.test(resH.textContent), resH.textContent.replace(/\s+/g, ' ').slice(0, 90));
+  check('Platform cek: di bawah tanda tangan tampil nama penandatangan + jabatan "Purchasing Manager"', /Naomi Simamora/.test(resH.textContent) && /Purchasing Manager/.test(resH.textContent) && !!resH.querySelector('.sigbox .signame') && !!resH.querySelector('.sigbox .sigtitle'));
   await winH.CekKeaslian.checkCard('000000000000');
   check('Platform cek: ref tak dikenal → KARTU TIDAK DITEMUKAN (pesan jelas, bukan crash)', /KARTU TIDAK DITEMUKAN/.test(resH.textContent), resH.textContent.replace(/\s+/g, ' ').slice(0, 90));
   check('Link QR: init otomatis dari ?card= + RPC card_by_ref di schema + grant anon', cekRaw.includes('new URLSearchParams(location.search).get("card")') && /function public\.card_by_ref/.test(schemaSql) && /grant execute on function public\.card_by_ref\(text\) to anon/.test(schemaSql));

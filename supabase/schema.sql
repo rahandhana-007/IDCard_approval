@@ -313,10 +313,24 @@ grant execute on function public.keep_alive(text) to anon, authenticated;
 -- Mengembalikan payload tertanda + tanda tangan PNG manager pengesah untuk
 -- halaman putusan "Kartu ini asli". Hanya kartu berstatus 'disetujui'.
 -- Boleh anonim: data ini memang dipublikasikan lewat QR kartu.
+-- v3.40: kolom baru signed_name (return type berubah → wajib DROP dulu; aman diulang)
+drop function if exists public.card_by_ref(text);
 create or replace function public.card_by_ref(p_ref text)
-returns table (payload text, sig_png text, signed_by text)
+returns table (payload text, sig_png text, signed_by text, signed_name text)
 language sql stable security definer set search_path = public as $$
-  select r.payload, pr.sig_png, r.signed_by
+  select r.payload,
+         -- v3.30: fallback — tanda tangan manager pertama bila profil signed_by kosong
+         coalesce(nullif(pr.sig_png, ''),
+                  (select p2.sig_png from public.profiles p2
+                    where p2.role = 'manager' and p2.sig_png is not null and p2.sig_png <> ''
+                    order by p2.created_at limit 1)),
+         r.signed_by,
+         -- v3.40: nama penandatangan utk caption di bawah tanda tangan
+         coalesce(nullif(pr.full_name, ''),
+                  (select p2.full_name from public.profiles p2
+                    where p2.role = 'manager' and p2.sig_png is not null and p2.sig_png <> ''
+                    order by p2.created_at limit 1),
+                  nullif(r.signed_by, ''))
   from public.requests r
   left join public.profiles pr on pr.username = r.signed_by
   where r.status = 'disetujui' and r.payload <> ''
