@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ID Card Management v3.00 — Purchasing - Raw Material Section</title>
+<title>ID Card Management v3.20 — Purchasing - Raw Material Section</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2064%2064'%3E%3Cdefs%3E%3ClinearGradient%20id='g'%20x1='0'%20y1='0'%20x2='1'%20y2='1'%3E%3Cstop%20offset='0'%20stop-color='%234f46e5'/%3E%3Cstop%20offset='1'%20stop-color='%236d28d9'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect%20x='4'%20y='12'%20width='56'%20height='40'%20rx='7'%20fill='url(%23g)'/%3E%3Crect%20x='4'%20y='20'%20width='56'%20height='8'%20fill='%231e1b4b'/%3E%3Crect%20x='10'%20y='35'%20width='13'%20height='10'%20rx='2.5'%20fill='%23fbbf24'/%3E%3Crect%20x='29'%20y='37'%20width='25'%20height='3.5'%20rx='1.75'%20fill='%23c7d2fe'/%3E%3Crect%20x='29'%20y='44'%20width='16'%20height='3.5'%20rx='1.75'%20fill='%23a5b4fc'/%3E%3C/svg%3E">
 <style>
 
@@ -159,7 +159,7 @@ canvas.qrthumb{image-rendering:pixelated;border:1px solid var(--line);border-rad
       </svg>
     </div>
     <div class="grow">
-      <h1>ID Card Management v3.00</h1>
+      <h1>ID Card Management v3.20</h1>
       <p class="sub">Purchasing - Raw Material Section | ID Card Vendor Representative Approval</p>
     </div>
     <span class="chip gray hide" id="chipSession" title="Sesi aktif"></span>
@@ -733,8 +733,28 @@ canvas.qrthumb{image-rendering:pixelated;border:1px solid var(--line);border-rad
         </div>
       </div>
 
+      <div class="card" style="margin-bottom:18px">
+        <h2><span class="n">5</span> PIN platform cek keaslian</h2>
+        <div class="body">
+          <p class="hint" style="margin-top:0">Wajib dimasukkan setiap orang yang memindai QR kartu <b>sebelum</b> halaman cek menampilkan putusan <b>✓ Kartu ini asli</b> + tanda tangan. PIN disimpan di server sebagai <b>hash SHA-256 bersalt</b> — halaman cek hanya menerima jawaban benar/salah, PIN asli tidak pernah tersimpan atau terpapar. Berlaku untuk semua pengguna &amp; perangkat.</p>
+          <div class="result" id="pinStatus" style="margin:10px 0 0"><h3><span class="chip gray">Memeriksa…</span></h3></div>
+          <div class="sep"></div>
+          <div class="field">
+            <label class="f" for="pinNew">PIN baru (4–8 digit angka)</label>
+            <input type="password" id="pinNew" inputmode="numeric" autocomplete="new-password" placeholder="contoh: 482913" maxlength="8">
+          </div>
+          <div class="field">
+            <label class="f" for="pinNew2">Ulangi PIN baru</label>
+            <input type="password" id="pinNew2" inputmode="numeric" autocomplete="new-password" maxlength="8">
+          </div>
+          <div class="btnrow" style="margin-top:10px">
+            <button class="btn primary" id="btnPinSave" type="button">Simpan PIN</button>
+          </div>
+        </div>
+      </div>
+
       <div class="card">
-        <h2><span class="n">5</span> Catatan keamanan</h2>
+        <h2><span class="n">6</span> Catatan keamanan</h2>
         <div class="body">
           <p class="note warn" style="margin-bottom:10px">
             Aplikasi berjalan di browser dengan <b>backend Supabase</b> (Auth + Postgres + Row Level Security). Yang dikirim ke server: akun/login, gambar &amp; data kartu pada antrean pengajuan, payload QR hasil, dan blob kunci privat yang <b>sudah terenkripsi AES-256-GCM dengan frasa sandi Anda</b> — server tidak pernah melihat kunci privat dalam bentuk terbuka. Proses kriptografi (pembuatan kunci, hash, tanda tangan, QR) tetap 100% di browser. Untuk produksi skala besar, pertimbangkan HSM / layanan tanda tangan terpusat.
@@ -3212,7 +3232,7 @@ const S = {
   history: []
 };
 
-const APP_VERSION = "v3.00";   // ← WAJIB naik (+0.10) setiap revisi; ubah juga <title> & <h1>
+const APP_VERSION = "v3.20";   // ← WAJIB naik (+0.10) setiap revisi; ubah juga <title> & <h1>
 const LS = { hist:"kartusign.history.v1", pub:"kartusign.pub.v1", meta:"kartusign.meta.v1", acc:"kartusign.accounts.v1", sess:"kartusign.session.v1" };
 function lsGet(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }
 function lsSet(k,v){ try{ localStorage.setItem(k,v); }catch(e){} }
@@ -3520,6 +3540,7 @@ function applyRole(){
   $("btnLogout").classList.toggle("hide", !role || role === "verifier");
   $("btnChangePass").classList.toggle("hide", !role || role === "verifier");
   $("btnChangeName").classList.toggle("hide", !role || role === "verifier");
+  if (role === "manager"){ try{ renderPinStatus(); }catch(e){} }
 }
 async function doLogin(){
   const u = $("liUser").value.trim().toLowerCase(), p = $("liPass").value;
@@ -3657,12 +3678,23 @@ function updateCidFmtPreview(){
    Isi QR = {cekUrl}?card=<ref> → jauh lebih pendek dari payload penuh sehingga
    QR cetak kecil (badge 25%) sangat mudah di-scan. RPC server card_by_ref(ref)
    mengembalikan payload + tanda tangan manager utk halaman putusan. */
-async function sha256Hex12(str){
+const PIN_SALT = "IDCM-CEK-PIN:";   // v3.20: HARUS identik dengan RPC SQL verify_cek_pin
+async function sha256Hex(str){
   try{
     if (!(window.crypto && crypto.subtle && crypto.subtle.digest)) return "";
     const b = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(String(str)));
-    return Array.from(new Uint8Array(b)).map(v=>v.toString(16).padStart(2,"0")).join("").slice(0,12);
+    return Array.from(new Uint8Array(b)).map(v=>v.toString(16).padStart(2,"0")).join("");
   }catch(e){ return ""; }
+}
+async function sha256Hex12(str){ return (await sha256Hex(str)).slice(0,12); }
+/* v3.20: status PIN platform cek (panel Kunci & Akun — manager) */
+async function renderPinStatus(){
+  const box = $("pinStatus"); if (!box) return;
+  let has = false;
+  try{ if (SB.configured() && S.session) has = !!(await SB.getSetting("cek_pin_hash")); }catch(e){}
+  box.innerHTML = has
+    ? `<h3><span class="chip green">PIN aktif</span></h3><p class="hint" style="margin:6px 0 0">Setiap pemindaian QR kartu kini meminta PIN sebelum putusan ditampilkan. Simpan PIN baru di bawah untuk menggantinya.</p>`
+    : `<h3><span class="chip gray">PIN belum diset</span></h3><p class="hint" style="margin:6px 0 0">Halaman cek terbuka tanpa PIN. Simpan PIN pertama untuk mewajibkannya bagi semua pemindai QR kartu.</p>`;
 }
 async function loadCekUrl(){
   let u = "";
@@ -4903,6 +4935,22 @@ function init(){
   }
   $("btnLinkQrSave").addEventListener("click", ()=>saveCekUrl($("linkQrInput").value));
   $("btnLinkQrClear").addEventListener("click", ()=>saveCekUrl(""));
+  $("btnPinSave").addEventListener("click", async ()=>{
+    const p1 = $("pinNew").value.trim(), p2 = $("pinNew2").value.trim();
+    if (!/^\d{4,8}$/.test(p1)){ toast("PIN harus 4–8 digit angka.", true); return; }
+    if (p1 !== p2){ toast("Kedua isian PIN tidak sama.", true); return; }
+    if (!SB.configured() || !S.session || S.session.role !== "manager"){ toast("PIN hanya bisa disimpan manager dengan koneksi server.", true); return; }
+    const btn = $("btnPinSave"); btn.disabled = true;
+    try{
+      const hash = await sha256Hex(PIN_SALT + p1);
+      if (!hash){ toast("Browser ini tidak mendukung Web Crypto (butuh HTTPS/localhost) — PIN tidak disimpan.", true); return; }
+      await SB.saveSetting("cek_pin_hash", hash);
+      $("pinNew").value = ""; $("pinNew2").value = "";
+      toast("PIN platform cek disimpan di server — semua pemindaian QR kartu kini meminta PIN.");
+      await renderPinStatus();
+    }catch(e){ toast("Gagal menyimpan PIN di server: " + (e.message || e), true); }
+    finally { btn.disabled = false; }
+  });
   $("btnResetSeq").addEventListener("click", async ()=>{
     if (!S.session || S.session.role !== "manager"){ toast("Hanya manager yang dapat mereset nomor kartu.", true); return; }
     if (!confirm("Reset counter nomor kartu ke 0001?\nBila bulan ini sudah ada nomor yang dipakai/dicetak, nomor baru bisa kembar.")) return;
@@ -5276,7 +5324,7 @@ window.KartuSign = {
   version: APP_VERSION.replace(/^v/, ""),
   state: S,
   _debug: { render, renderSigInfo, encryptBlob, decryptBlob, importPrivateFromText, computeKid, makeQrCanvas, signCard, loadImageFile, computeBadge, applyOrientation, buildVerifierHtml, trustSources, verifySignatureOf, getSelfHtml: ()=>SELF_HTML, canonicalString, buildCompactSig, expandCompactSig, renderApproved, qrPrintAdvice, expandFixed, tokFixed,
-  SB, sbAddAccount, sbEnsureFirstManager, sbProfileOrThrow, saveSigToServer, restoreSigFromProfile, loadCidFormat, applyCidFormat, validateCidFormat, doSignup, renderAccounts, rowToRec, bytesToB64, b64ToBytes, loadHistory, pushHistory, startPolling, stopPolling, sendHeartbeat, fetchNewCid, sha256Hex12, loadCekUrl, makeCardLink,
+  SB, sbAddAccount, sbEnsureFirstManager, sbProfileOrThrow, saveSigToServer, restoreSigFromProfile, loadCidFormat, applyCidFormat, validateCidFormat, doSignup, renderAccounts, rowToRec, bytesToB64, b64ToBytes, loadHistory, pushHistory, startPolling, stopPolling, sendHeartbeat, fetchNewCid, sha256Hex12, sha256Hex, renderPinStatus, loadCekUrl, makeCardLink,
     reqAll, reqGet, loadRequest, submitRequest, doLogin, logout, applyRole, bytesToImageRec, renderQueue, renderMyRequests, unlockKey, loadKeys, persistKeys, ensureKey, prepareApprovedCard, userDownload, imageFromURL },
   algos: ALG,
   utils: { b64u, b64uToBytes, hexShort, canonicalString, derToPem, pemToDer },

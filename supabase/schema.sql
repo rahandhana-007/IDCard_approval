@@ -325,3 +325,26 @@ language sql stable security definer set search_path = public as $$
 $$;
 revoke all on function public.card_by_ref(text) from public;
 grant execute on function public.card_by_ref(text) to anon, authenticated;
+
+-- ---------- v3.20: PIN platform cek keaslian ----------
+-- PIN diset manager di aplikasi (panel Kunci & Akun) sebagai hash:
+--   app_settings['cek_pin_hash'] = encode(sha256(('IDCM-CEK-PIN:'||pin)::bytea),'hex')
+-- Halaman cek (anon) hanya bisa bertanya: PIN aktif? dan PIN ini benar?
+-- Hash tidak pernah bisa dibaca anon (RLS app_settings = authenticated saja).
+create or replace function public.cek_pin_active()
+returns boolean language sql stable security definer set search_path = public as $$
+  select exists (select 1 from public.app_settings s where s.key = 'cek_pin_hash' and s.value <> '');
+$$;
+revoke all on function public.cek_pin_active() from public;
+grant execute on function public.cek_pin_active() to anon, authenticated;
+
+create or replace function public.verify_cek_pin(p_pin text)
+returns boolean language sql stable security definer set search_path = public as $$
+  select exists (
+    select 1 from public.app_settings s
+    where s.key = 'cek_pin_hash'
+      and s.value = encode(sha256(('IDCM-CEK-PIN:' || coalesce(p_pin, ''))::bytea), 'hex')
+  );
+$$;
+revoke all on function public.verify_cek_pin(text) from public;
+grant execute on function public.verify_cek_pin(text) to anon, authenticated;

@@ -217,12 +217,12 @@ Bila ruang sempit: pilih ECL **L** dan aktifkan **Key ID ringkas**.
 | Berkas | Keterangan |
 |---|---|
 | `KartuSign.html` | **Aplikasi jadi** — satu file, siap pakai/dibagikan |
-| `CekKeaslian.html` | **Platform cek keaslian kartu** — satu file, TANPA login: **scan QR lewat kamera/foto** atau tempel payload → verdict ASLI/TIDAK ASLI (kunci publik diambil live dari server) |
+| `CekKeaslian.html` | **Platform cek keaslian kartu** — satu file, TANPA login: dibuka lewat **link QR kartu** → putusan **✓ KARTU INI ASLI** + tanda tangan manager di bawahnya (v3.10: tanpa UI lain) |
 | `cek.template.html` | Sumber platform cek keaslian — edit di sini |
 | `contoh-kartu.png` | Kartu contoh (ID-1 300 dpi) untuk mencoba aplikasi |
 | `app.template.html` | Sumber aplikasi (tanpa library QR) — edit di sini |
 | `qrcode-generator.js` | Library QR (Kazuhiko Arase, MIT) yang ditanam saat build |
-| `jsqr.js` | Library **decoder** QR (jsQR 1.4.0, Apache-2.0) yang ditanam ke `CekKeaslian.html` saat build |
+| `jsqr.js` | Library **decoder** QR (jsQR 1.4.0, Apache-2.0) — arsip; **sejak v3.10 tidak lagi ditanam** (scanner di halaman cek dihapus atas permintaan pengguna) |
 | `pwa/` | Aset PWA platform cek: `manifest.webmanifest`, `sw.js` (cache offline + kunci publik), `icon-192/512.png` (dibangkitkan `make_icons.py`) — disalin build ke `preview/` & `deploy/` |
 | `build.py` | Merakit `KartuSign.html` dari template + library (sekalian menulis `preview/` & `deploy/`) |
 | `supabase/schema.sql` | **Skema database Supabase** (tabel + trigger + kebijakan RLS) — jalankan di SQL Editor |
@@ -241,7 +241,7 @@ python3 build.py
 ### Menjalankan uji
 
 ```bash
-npm install jsdom jsqr --no-audit --no-fund   # sekali saja
+npm install jsdom --no-audit --no-fund   # sekali saja
 node test.js      # 132 kasus: setup server, signup/login, RLS, kunci terenkripsi di server, unduh kartu oleh user,
                   # alur user→manager LINTAS PERANGKAT (2+ window jsdom berbagi mock backend),
                   # ganti password + re-wrap kunci, restore sesi, verifier build, kripto v2/v3
@@ -262,7 +262,7 @@ cd preview && python3 -m http.server 8080 --bind 0.0.0.0
 ## Lisensi komponen
 
 - QR Code Generator — Kazuhiko Arase, MIT License (ditanam di dalam file).
-- jsQR 1.4.0 — Cosmo Wolfe, **Apache License 2.0** (ditanam di `CekKeaslian.html` untuk modul barcode scanner).
+- jsQR 1.4.0 — Cosmo Wolfe, **Apache License 2.0** (pernah ditanam di `CekKeaslian.html` untuk modul scanner s.d. v3.00; sejak v3.10 tidak dipakai — `jsqr.js` disimpan sebagai arsip).
 - Selebihnya kode aplikasi ini bebas Anda pakai dan ubah sesuai kebutuhan instansi.
 
 ---
@@ -326,21 +326,35 @@ Catatan: **login tetap perlu sekali per browser** — token sesi adalah kredensi
 
 ## Platform Cek Keaslian (publik, tanpa login)
 
-**`CekKeaslian.html`** — satu file standalone untuk petugas/pemegang kartu memeriksa keaslian: **satu textbox** untuk menempel isi QR, tanpa login, tanpa panel lain.
+**`CekKeaslian.html`** — satu file standalone **halaman putusan** (v3.10): dibuka lewat link QR kartu (`?card=<ref>`) → otomatis menampilkan **✓ KARTU INI ASLI** dengan **tanda tangan manager pengesah di bawah pernyataan**. Tanpa login; semua UI lain (textbox, tombol, scanner, caption, footer) dihapus atas permintaan pengguna — yang tersisa hanya putusan dan pesan galat minimal.
 
 - Kunci publik penerbit diambil **live dari Supabase** lewat RPC `public_signing_keys()` (boleh anonim — hanya kolom publik `alg/kid/pubkey_pem` yang dipaparkan; blob privat terenkripsi tidak pernah keluar). Kunci berganti/rotasi → platform otomatis mengikuti, tanpa build ulang.
-- **Modul barcode scanner** (v2.60): tombol **📷 Scan QR (kamera)** — video live dengan bingkai pandu, decode lokal tiap ±220 ms (jsQR, tanpa unggah gambar apa pun), putusan otomatis begitu QR terbaca; **💡 Senter** bila perangkat mendukung; **🖼 Scan dari foto** untuk foto/berkas QR. Kamera butuh HTTPS + izin; bila gagal, pesan diagnosa spesifik per penyebab (v2.80): di dalam iframe/pratinjau → arahan buka URL langsung; tanpa perangkat kamera → KAMERA TIDAK DITEMUKAN; izin ditolak → cara mengizinkan. Jalur tempel manual/foto selalu berfungsi.
-- **PWA (v2.70)**: dapat **di-instal** ke layar utama HP (tampilan *standalone* tanpa address bar, ikon kartu khusus, tombol *⤓ Instal aplikasi* muncul otomatis bila browser menawarkannya) dan **tetap berfungsi offline** — service worker meng-cache halaman + kunci publik penerbit (network-first), sehingga verifikasi keaslian jalan tanpa internet memakai kunci terakhir yang tersimpan; saat offline total tanpa cache, pesan menjelaskan caranya.
-- **Link QR anti-susah-scan (v3.00)**: isi QR kartu bisa berupa **link pendek** (±60 karakter vs ±300+ karakter payload penuh) → modul QR jauh lebih besar → **sangat mudah di-scan walau dicetak 25%**. Aktifkan lewat **🔗 Setting Link QR** (URL platform cek; disimpan di server, berlaku semua pengguna). Scan dengan kamera HP → halaman cek terbuka → **otomatis** menampilkan **✓ Kartu ini asli** + **tanda tangan manager di bawah pernyataan** + rincian kartu. Verifikasi kriptografis tetap penuh di browser pengunjung (payload diambil via RPC anon `card_by_ref`; ref = 12 hex SHA-256 id pengajuan). Kartu lama (QR payload penuh) tetap bisa diverifikasi; mode link butuh internet saat diperiksa; kosongkan setting untuk kembali ke payload penuh.
-- **Catatan kamera**: akses kamera diblokir browser bila halaman tidak dalam konteks aman — di Netlify (HTTPS) tombol 📷 berfungsi; di pratinjau ber-iframe/`file://` tidak. Di lingkungan tanpa kamera, pakai **🖼 Scan dari foto** (di HP tombol ini membuka aplikasi kamera langsung).
-- Mesin verifikasi **identik** dengan aplikasi utama (canonical string KS3/KS2, ECDSA P-256 / RSA-2048, token `MP`/`PS1` diekspansi saat tampil) → putusan konsisten: `✓ KARTU INI ASLI` / `✗ KARTU TIDAK ASLI` + alasan spesifik (payload rusak, kid tak dikenal, tanda tangan tidak cocok) + detail kartu + peringatan bila masa berlaku habis.
+- **Halaman putusan murni (v3.10)**: textbox tempel, tombol Periksa/Scan/Senter/Instal, dan **modul barcode scanner + jsQR dihapus** atas permintaan pengguna — pemeriksaan hanya lewat **link QR**. Kartu lama ber-QR payload penuh diverifikasi lewat verifier bawaan aplikasi (`IDCardManagement-Verifier.html`).
+- **Gerbang PIN (v3.20)**: sebelum putusan ditampilkan, setiap orang yang memindai QR kartu **wajib memasukkan PIN**. PIN diset **manager** di panel **Kunci & Akun** aplikasi (kartu "PIN platform cek keaslian"): 4–8 digit angka, disimpan di server sebagai **hash SHA-256 bersalt** (`app_settings` key `cek_pin_hash`) — PIN asli tidak pernah tersimpan/terkirim balik. Halaman cek memvalidasi lewat RPC anon `cek_pin_active()` + `verify_cek_pin()` (security definer, hanya menjawab true/false; hash tak terbaca anon karena RLS `app_settings`). **Data kartu tidak diambil sebelum PIN benar.** PIN benar diingat untuk tab browser itu (sessionStorage); PIN salah → pesan "PIN salah"; bila PIN belum diset, halaman bekerja tanpa gerbang (kompatibel ke belakang).
+- **PWA (v2.70)**: dapat **di-instal** ke layar utama HP (tampilan *standalone* tanpa address bar, ikon kartu khusus, instalasi lewat menu browser — *Add to Home screen* (tombol instal khusus dihapus di v3.10)) dan **tetap berfungsi offline** — service worker meng-cache halaman + kunci publik penerbit (network-first), sehingga verifikasi keaslian jalan tanpa internet memakai kunci terakhir yang tersimpan; saat offline total tanpa cache, pesan menjelaskan caranya.
+- **Link QR anti-susah-scan (v3.00)**: isi QR kartu bisa berupa **link pendek** (±60 karakter vs ±300+ karakter payload penuh) → modul QR jauh lebih besar → **sangat mudah di-scan walau dicetak 25%**. Aktifkan lewat **🔗 Setting Link QR** (URL platform cek; disimpan di server, berlaku semua pengguna). Scan dengan kamera HP → halaman cek terbuka → **otomatis** menampilkan **✓ Kartu ini asli** + **tanda tangan manager di bawah pernyataan** (sejak v3.10 tanpa rincian lain). Verifikasi kriptografis tetap penuh di browser pengunjung (payload diambil via RPC anon `card_by_ref`; ref = 12 hex SHA-256 id pengajuan). Kartu lama (QR payload penuh) diverifikasi lewat verifier bawaan aplikasi; mode link butuh internet saat diperiksa; kosongkan setting untuk kembali ke payload penuh.
+- Mesin verifikasi **identik** dengan aplikasi utama (canonical string KS3/KS2, ECDSA P-256 / RSA-2048, token `MP`/`PS1` diekspansi saat tampil) → putusan konsisten: `✓ KARTU INI ASLI` / `✗ KARTU TIDAK ASLI` + alasan spesifik (payload rusak, kid tak dikenal, tanda tangan tidak cocok); chip merah "masa berlaku habis" dipertahankan. Sejak v3.10 halaman hanya menampilkan pernyataan putusan + tanda tangan (tanpa rincian).
 - Koneksi server ikut tertanam saat `python3 build.py` (dari `supabase/config.json`), juga mendukung link `?sb_url=…&sb_key=…` dan config localStorage.
 - Deploy Netlify: file ada di `deploy/cek-keaslian.html` → URL publik `https://situs-anda/cek-keaslian.html`. Pratinjau lokal: `http://localhost:8080/cek-keaslian.html`.
 - ⚠️ Butuh **`supabase/schema.sql`** terbaru (RPC `public_signing_keys`).
 
 ## Catatan rilis
 
-> **Konvensi versi (permintaan pengguna):** setiap revisi, versi pada judul ikut dinaikkan **+0.10** — `<title>`, `<h1>` ("ID Card Management v3.00"), konstanta `APP_VERSION` di template, judul verifier, platform cek keaslian, dan README. Revisi berikutnya = v3.10, dst.
+> **Konvensi versi (permintaan pengguna):** setiap revisi, versi pada judul ikut dinaikkan **+0.10** — `<title>`, `<h1>` ("ID Card Management v3.20"), konstanta `APP_VERSION` di template, judul verifier, platform cek keaslian, dan README. Revisi berikutnya = v3.30, dst.
+
+**v3.20 (revisi atas permintaan pengguna — gerbang PIN sebelum membuka putusan cek keaslian)**
+
+- Sebelum halaman cek menampilkan putusan, **siapa pun yang memindai QR kartu wajib memasukkan PIN dulu** — mencegah orang sembarangan melakukan scanning. PIN diset **manager** di halaman **Kunci & Akun**: kartu baru "PIN platform cek keaslian" (nomor 5; Catatan keamanan jadi nomor 6) — PIN 4–8 digit angka diinput dua kali, chip status *PIN aktif / belum diset*, disimpan ke server sebagai **hash SHA-256 dengan salt `IDCM-CEK-PIN:`** (`app_settings` key `cek_pin_hash`). PIN asli tidak pernah disimpan/dipaparkan.
+- **Halaman cek**: bila PIN aktif, link QR pertama-tama menampilkan layar **🔒 Masukkan PIN**; `checkCard` **tidak mengambil data kartu** sebelum PIN tervalidasi. Validasi lewat RPC anon baru **`verify_cek_pin(p_pin)`** (perbandingan hash terjadi di dalam server, security definer) + **`cek_pin_active()`**; RLS `app_settings` tetap hanya authenticated → anon tidak bisa membaca hash. PIN benar disimpan di sessionStorage (tab itu saja) → scan berikutnya tanpa input ulang. PIN salah → "PIN salah — coba lagi"; offline → "PERLU INTERNET"; RPC belum ada → pesan jalankan schema v3.20.
+- **Wajib jalankan ulang `supabase/schema.sql`** (2 RPC baru). Versi judul naik menjadi **v3.20**.
+- Uji otomatis: 206 → **212 kasus** (RPC ada di schema + grant anon; UI PIN di Kunci & Akun; hash tersimpan === SHA-256(salt+PIN) & PIN asli tidak tersimpan; layar PIN muncul sebelum putusan; PIN salah ditolak; PIN benar → putusan + tanda tangan).
+
+**v3.10 (revisi atas permintaan pengguna — halaman cek jadi putusan murni)**
+
+- Sesuai permintaan, `CekKeaslian.html` **dibersihkan total**: semua caption, textbox tempel payload, tombol (*Periksa Keaslian*, 📷 Scan QR, 🖼 Scan dari foto, 💡 Senter, ⤓ Instal), **modul scanner kamera + jsQR**, header, footer, dan panel "Cara memakai" **dibuang**. Yang tersisa hanya **halaman putusan**: dibuka lewat link QR kartu (`?card=<ref>`) → otomatis menampilkan **✓ KARTU INI ASLI** dengan **tanda tangan manager (yang sudah diunggah sekali ke server) tepat di bawah pernyataan**. Pesan galat minimal tetap ada (TIDAK ADA KARTU, KARTU TIDAK DITEMUKAN, KARTU TIDAK ASLI, PERLU INTERNET, dst.); chip merah "masa berlaku habis" dipertahankan demi kebenaran putusan.
+- Mesin verifikasi kriptografis **tidak berubah** (identik aplikasi utama); PWA (manifest + service worker: cache halaman & kunci publik) tetap — hanya tombol instal khusus yang dihapus (instalasi lewat menu browser). Ukuran file turun ±256 KB karena jsQR tidak lagi ditanam (`build.py` menyuntik hanya bila placeholder ada).
+- Konsekuensi: kartu lama ber-QR payload penuh tidak lagi bisa diperiksa di halaman ini (tidak ada kotak tempel) — gunakan verifier bawaan aplikasi (`IDCardManagement-Verifier.html`).
+- Versi naik menjadi **v3.10** (`<title>` + `CekKeaslian.version`; h1 visual ikut terhapus bersama header). Uji otomatis: 212 → **206 kasus** (19i ditulis ulang untuk halaman minimal; seksi scanner 19j dihapus; 19m lewat `checkCard(ref)` + assertion tanda tangan tampil tanpa caption/rincian).
 
 **v3.00 (revisi atas masukan pengguna — QR cetak susah di-scan → isi barcode jadi link halaman verifikasi)**
 

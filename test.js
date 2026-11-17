@@ -175,6 +175,16 @@ async function sbFetch(urlStr, opts) {
     const pr = backend.profiles.find(p => p.username === rq.signed_by);
     return resp(200, [{ payload: rq.payload, sig_png: (pr && pr.sig_png) || null, signed_by: rq.signed_by || '' }]);
   }
+  if (url.includes('/rest/v1/rpc/cek_pin_active')) {        // v3.20: PIN halaman cek aktif? (anon boleh)
+    const st = backend.app_settings.find(s => s.key === 'cek_pin_hash');
+    return resp(200, !!(st && st.value));
+  }
+  if (url.includes('/rest/v1/rpc/verify_cek_pin')) {        // v3.20: cek PIN (anon; hanya boolean)
+    const cryptoP = require('crypto');
+    const st = backend.app_settings.find(s => s.key === 'cek_pin_hash');
+    const pin = String((body && body.p_pin) || '');
+    return resp(200, !!(st && st.value && st.value === cryptoP.createHash('sha256').update('IDCM-CEK-PIN:' + pin, 'utf8').digest('hex')));
+  }
   if (url.includes('/rest/v1/rpc/update_my_full_name')) {   // v2.3: security-definer RPC
     if (!a) return resp(401, { code: '42501', message: 'RLS' });
     const nm = String((body && body.nama) || '').trim();
@@ -864,57 +874,19 @@ const winA = domA.window, docA = winA.document;
   try { await winB.KartuSign._debug.SB.resetCardSeq(); } catch (e) { seqRejected = true; }
   check('Non-manager ditolak server saat reset counter', seqRejected);
 
-  /* ============ 19i. PLATFORM CEK KEASLIAN — PUBLIK, TANPA LOGIN (v2.50) ============ */
+  /* ============ 19i. PLATFORM CEK KEASLIAN — HALAMAN PUTUSAN MINIMAL (v3.10) ============ */
   const domH = makeDom(cekHtml, seedConfig);
   const winH = domH.window, docH = winH.document;
   await sleep(500);
-  check('Platform cek: terbuka tanpa login/setup + versi di judul', !!docH.getElementById('cekPayload') && !!docH.getElementById('btnCheck') && !docH.getElementById('liUser') && !docH.querySelector('[data-panel]') && /Cek Keaslian Kartu v\d+\.\d+/.test(docH.title), docH.title);
-  docH.getElementById('cekPayload').value = row1.payload;
-  docH.getElementById('btnCheck').click(); await sleep(900);
   const resH = docH.getElementById('result');
-  check('Platform cek: payload asli → ✓ ASLI + detail lengkap (anon, kunci dari server)', /✓ KARTU INI ASLI/.test(resH.textContent) && /KTR-REQ-001/.test(resH.textContent) && /Siti Aminah/.test(resH.textContent) && /Manager Purchasing/.test(resH.textContent), resH.textContent.replace(/\s+/g, ' ').slice(0, 100));
+  check('Platform cek: halaman minimal — tanpa textbox/tombol apa pun + versi di judul', !!resH && !docH.getElementById('cekPayload') && !docH.getElementById('btnCheck') && !docH.getElementById('btnScan') && !docH.querySelector('button') && /Cek Keaslian Kartu v\d+\.\d+/.test(docH.title), docH.title);
+  await winH.CekKeaslian.verifyPayload(row1.payload, null);
+  check('Platform cek: payload asli → ✓ KARTU INI ASLI (anon, kunci dari server)', /✓ KARTU INI ASLI/.test(resH.textContent), resH.textContent.replace(/\s+/g, ' ').slice(0, 100));
   const forgH = JSON.parse(row1.payload); forgH.hld = 'Bukan Pemegangnya';
-  docH.getElementById('cekPayload').value = JSON.stringify(forgH);
-  docH.getElementById('btnCheck').click(); await sleep(700);
+  await winH.CekKeaslian.verifyPayload(JSON.stringify(forgH), null);
   check('Platform cek: payload diubah → ✗ TIDAK ASLI', /✗ KARTU TIDAK ASLI/.test(resH.textContent));
-  docH.getElementById('cekPayload').value = '{"v":3,"rusak":';
-  docH.getElementById('btnCheck').click(); await sleep(400);
+  await winH.CekKeaslian.verifyPayload('{"v":3,"rusak":', null);
   check('Platform cek: JSON rusak → pesan jelas', /Payload tidak valid/.test(resH.textContent));
-
-  /* ============ 19j. MODUL BARCODE SCANNER di platform cek (v2.60) ============ */
-  check('Platform cek: tombol scanner kamera & foto tersedia', !!docH.getElementById('btnScan') && !!docH.getElementById('btnScanFile') && !!docH.getElementById('scanBox') && !!docH.getElementById('scanVideo'));
-  { // bitmap QR asli dari payload row1 → decode lewat jsQR tertanam
-    const qrJ = winA.qrcode(0, 'L');
-    qrJ.addData(row1.payload, 'Byte');
-    qrJ.make();
-    const nJ = qrJ.getModuleCount(), scJ = 8, qJ = 4, WJ = (nJ + qJ * 2) * scJ;
-    const pixJ = new Uint8ClampedArray(WJ * WJ * 4);
-    pixJ.fill(255);
-    for (let rJ = 0; rJ < nJ; rJ++) for (let cJ = 0; cJ < nJ; cJ++) {
-      if (!qrJ.isDark(rJ, cJ)) continue;
-      for (let dy = 0; dy < scJ; dy++) for (let dx = 0; dx < scJ; dx++) {
-        const i = (((rJ + qJ) * scJ + dy) * WJ + ((cJ + qJ) * scJ + dx)) * 4;
-        pixJ[i] = 0; pixJ[i + 1] = 0; pixJ[i + 2] = 0;
-      }
-    }
-    const decodedJ = winH.CekKeaslian.decodeQR(pixJ, WJ, WJ);
-    check('Scanner: jsQR tertanam — bitmap QR payload asli ter-decode utuh', decodedJ === row1.payload, String(decodedJ).slice(0, 60));
-  }
-  docH.getElementById('btnScan').click(); await sleep(300);
-  check('Scanner: tanpa dukungan kamera → pesan jelas (tidak crash)', /KAMERA TIDAK TERSEDIA|IZIN KAMERA DITOLAK|KAMERA TIDAK DITEMUKAN/.test(resH.textContent), resH.textContent.replace(/\s+/g, ' ').slice(0, 80));
-  check('Scanner: deteksi iframe/pratinjau → pesan khusus (bukan galat generik)', cekRaw.includes('window.self!==window.top') && cekRaw.includes('KAMERA DI DALAM PRATINJAU'));
-  Object.defineProperty(winH.navigator, 'mediaDevices', { configurable: true, value: {
-    enumerateDevices: () => Promise.resolve([{ kind: 'audioinput', deviceId: 'mic' }]),
-    getUserMedia: () => Promise.reject(Object.assign(new Error('Requested device not found'), { name: 'NotFoundError' }))
-  }});
-  await winH.CekKeaslian.startScanner();
-  check('Scanner: tanpa perangkat kamera (NotFoundError) → "KAMERA TIDAK DITEMUKAN" + arahan Scan dari foto', /KAMERA TIDAK DITEMUKAN/.test(resH.textContent) && /Scan dari foto/.test(resH.textContent), resH.textContent.replace(/\s+/g, ' ').slice(0, 90));
-  Object.defineProperty(winH.navigator, 'mediaDevices', { configurable: true, value: {
-    enumerateDevices: () => Promise.resolve([{ kind: 'videoinput', deviceId: 'cam' }]),
-    getUserMedia: () => Promise.reject(Object.assign(new Error('Permission denied'), { name: 'NotAllowedError' }))
-  }});
-  await winH.CekKeaslian.startScanner();
-  check('Scanner: izin ditolak (NotAllowedError) → "IZIN KAMERA DITOLAK" + cara mengizinkan', /IZIN KAMERA DITOLAK/.test(resH.textContent), resH.textContent.replace(/\s+/g, ' ').slice(0, 90));
 
   /* ============ 19k. PWA PLATFORM CEK (v2.70) ============ */
   check('PWA: manifest + theme-color + apple-touch-icon di halaman cek', /rel="manifest"/.test(cekRaw) && /name="theme-color"/.test(cekRaw) && /apple-touch-icon/.test(cekRaw));
@@ -928,7 +900,7 @@ const winA = domA.window, docA = winA.document;
   const schemaSql = fs.readFileSync(path.join(__dirname, 'supabase', 'schema.sql'), 'utf8');
   check('Keep-alive: RPC keep_alive() ada di schema + grant anon (utk cron eksternal)', /function public\.keep_alive/.test(schemaSql) && /grant execute on function public\.keep_alive\(text\) to anon/.test(schemaSql));
 
-  /* ============ 19m. LINK QR → HALAMAN VERIFIKASI (v3.00) ============ */
+  /* ============ 19m. LINK QR → PUTUSAN + TANDA TANGAN (v3.10) ============ */
   const cryptoN = require('crypto');
   const reqRowM = backend.requests.find(q => q.status === 'disetujui' && q.payload === row1.payload);
   check('Link QR: request disetujui (row1) tersedia di mock lengkap dengan id', !!(reqRowM && reqRowM.id));
@@ -943,14 +915,31 @@ const winA = domA.window, docA = winA.document;
   check('Aplikasi: makeCardLink → URL + ?card= + 12 hex SHA-256(id) — identik dgn hitungan sisi SQL', linkM === 'https://contoh.netlify.app/cek-keaslian.html?card=' + refM, linkM);
   const sigProf = backend.profiles.find(p => p.username === reqRowM.signed_by) || backend.profiles.find(p => p.role === 'manager');
   if (sigProf) sigProf.sig_png = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==';
-  docH.getElementById('cekPayload').value = linkM;
-  await winH.CekKeaslian.doCheck();
-  check('Platform cek: dibuka via link QR → putusan ✓ KARTU INI ASLI', /KARTU INI ASLI/.test(resH.textContent), resH.textContent.replace(/\s+/g, ' ').slice(0, 90));
-  check('Platform cek: tanda tangan manager tampil di bawah pernyataan asli', !!resH.querySelector('img[alt="Tanda tangan pengesah"]') && /Tanda tangan pejabat pengesah/.test(resH.textContent));
-  docH.getElementById('cekPayload').value = 'https://contoh.netlify.app/cek-keaslian.html?card=000000000000';
-  await winH.CekKeaslian.doCheck();
+  await winH.CekKeaslian.checkCard(refM);
+  check('Platform cek: lewat link QR → putusan ✓ KARTU INI ASLI', /KARTU INI ASLI/.test(resH.textContent), resH.textContent.replace(/\s+/g, ' ').slice(0, 90));
+  check('Platform cek: tanda tangan manager tampil di bawah pernyataan — tanpa rincian/caption lain', !!resH.querySelector('.sigbox img[alt="Tanda tangan pengesah"]') && !resH.querySelector('dl') && !/Tanda tangan pejabat pengesah/.test(resH.textContent));
+  await winH.CekKeaslian.checkCard('000000000000');
   check('Platform cek: ref tak dikenal → KARTU TIDAK DITEMUKAN (pesan jelas, bukan crash)', /KARTU TIDAK DITEMUKAN/.test(resH.textContent), resH.textContent.replace(/\s+/g, ' ').slice(0, 90));
-  check('Link QR: RPC card_by_ref ada di schema + grant anon', /function public\.card_by_ref/.test(schemaSql) && /grant execute on function public\.card_by_ref\(text\) to anon/.test(schemaSql));
+  check('Link QR: init otomatis dari ?card= + RPC card_by_ref di schema + grant anon', cekRaw.includes('new URLSearchParams(location.search).get("card")') && /function public\.card_by_ref/.test(schemaSql) && /grant execute on function public\.card_by_ref\(text\) to anon/.test(schemaSql));
+
+  /* ============ 19n. GERBANG PIN HALAMAN CEK (v3.20) ============ */
+  check('PIN: RPC verify_cek_pin + cek_pin_active ada di schema + grant anon', /function public\.verify_cek_pin/.test(schemaSql) && /function public\.cek_pin_active/.test(schemaSql) && /grant execute on function public\.verify_cek_pin\(text\) to anon/.test(schemaSql) && /grant execute on function public\.cek_pin_active\(\) to anon/.test(schemaSql));
+  const PIN_T = '482913';
+  const pinHashExpect = cryptoN.createHash('sha256').update('IDCM-CEK-PIN:' + PIN_T, 'utf8').digest('hex');
+  check('PIN: UI setting tersedia di panel Kunci & Akun (manager)', !!$('pinNew') && !!$('pinNew2') && !!$('btnPinSave') && !!$('pinStatus'));
+  $('pinNew').value = PIN_T; $('pinNew2').value = PIN_T;
+  $('btnPinSave').click(); await sleep(800);
+  const pinRow = backend.app_settings.find(s => s.key === 'cek_pin_hash');
+  check('PIN: simpan manager → server menyimpan hash SHA-256(salt+PIN), bukan PIN asli', !!pinRow && pinRow.value === pinHashExpect && pinRow.value.indexOf(PIN_T) === -1);
+  winH.CekKeaslian._resetPin();
+  await winH.CekKeaslian.checkCard(refM);
+  check('Halaman cek: PIN aktif → layar input PIN muncul SEBELUM putusan (data kartu belum diambil)', !!docH.getElementById('pinInput') && !!docH.getElementById('btnPin') && !/KARTU INI ASLI/.test(resH.textContent));
+  docH.getElementById('pinInput').value = '000000';
+  docH.getElementById('btnPin').click(); await sleep(600);
+  check('Halaman cek: PIN salah → ditolak, putusan tetap tidak tampil', /PIN salah/.test(resH.textContent) && !/KARTU INI ASLI/.test(resH.textContent), resH.textContent.replace(/\s+/g, ' ').slice(0, 80));
+  docH.getElementById('pinInput').value = PIN_T;
+  docH.getElementById('btnPin').click(); await sleep(900);
+  check('Halaman cek: PIN benar → putusan ✓ KARTU INI ASLI + tanda tangan manager', /KARTU INI ASLI/.test(resH.textContent) && !!resH.querySelector('.sigbox img[alt="Tanda tangan pengesah"]'), resH.textContent.replace(/\s+/g, ' ').slice(0, 80));
 
   /* ============ 20. LOGOUT membersihkan state lokal ============ */
   await D.logout(); await sleep(300);
